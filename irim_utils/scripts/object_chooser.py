@@ -51,8 +51,13 @@ class object_pose_remapper:
         else:
             obj_pose = data.markers[1].pose.pose
             
+            # Filling up the new message
+            pose_stamped = PoseStamped()
+            pose_stamped.header.stamp = rospy.Time.now()
+            pose_stamped.pose = obj_pose
+
             # Publish to output_topic
-            self.pub.publish(obj_pose)
+            self.pub.publish(pose_stamped)
 
 def main(args):
     '''Initializes and cleanup ros node'''
