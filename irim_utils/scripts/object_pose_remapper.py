@@ -7,6 +7,8 @@
 # name for our 'listener' node so that multiple listeners can
 # run simultaneously.
 
+''' This node is for republishing an objects pose to an output_topic '''
+
 # Python libs
 import sys, time
 import numpy
