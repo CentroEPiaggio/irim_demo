@@ -7,26 +7,59 @@
 # name for our 'listener' node so that multiple listeners can
 # run simultaneously.
 
+# Python libs
+import sys, time
+import numpy
+
+# Ros libraries
+import roslib
 import rospy
-from std_msgs.msg import String
 
-global obj_pose
+from geometry_msgs.msg import Pose
+from aruco_msgs.msg import MarkerArray
+from std_msgs.msg import UInt32MultiArray
 
-def callback(data):
-    rospy.loginfo(rospy.get_caller_id() + "I heard the MarkerArray")
-    obj_pose = data.pose.pose
+VERBOSE=False
+input_topic = "aruco_marker_publisher/markers"
+output_topic = "object_pose"
 
-def object_pose_remapper():
+class object_pose_remapper:
+
+    def __init__(self):
+        ''' Initializing the subscriber to aruco 
+        and the publisher to object_pose '''
+
+        # Subsciber
+        self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size = 1)
+
+        # Publisher
+        self.pub = rospy.Publisher(output_topic, Pose, queue_size=10)
+
+        if VERBOSE :
+            print "subscribed to " + input_topic
+            print "subscribed to " + output_topic
+
+    def callback(self, data):
+        ''' Callback function of subscribed topic. 
+        Here the read message of pose is published to output topic '''
+        
+        # Extractind the needed data to be published
+        rospy.loginfo(rospy.get_caller_id() + "I heard the MarkerArray")
+        obj_pose = data.markers[0].pose.pose
+
+        # Publish to output_topic
+        self.pub.publish(obj_pose)
+
+def main(args):
+    '''Initializes and cleanup ros node'''
     rospy.init_node('object_pose_remapper', anonymous=True)
-    rospy.Subscriber("aruco_marker_publisher/markers_list", UInt32MultiArray, callback)
-    pub = rospy.Publisher('object_pose', Pose, queue_size=10)
-    rate = rospy.Rate(10) # 10hz
-    while not rospy.is_shutdown():
-        pub.publish(obj_pose)
-        rate.sleep()
+
+    opr = object_pose_remapper()
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        print "Shutting down ROS Image feature detector module"
 
 if __name__ == '__main__':
-    try:
-        object_pose_remapper()
-    except rospy.ROSInterruptException:
-        pass
+    main(sys.argv)
