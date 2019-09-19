@@ -33,7 +33,7 @@ class object_pose_remapper:
         self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size = 1)
 
         # Publisher
-        self.pub = rospy.Publisher(output_topic, Pose, queue_size=10)
+        self.pub = rospy.Publisher(output_topic, PoseStamped, queue_size=10)
 
         if VERBOSE :
             print "subscribed to " + input_topic
