@@ -1,15 +1,22 @@
 <launch>
 
-    <!-- DEFAULT ARGS -->
+    <arg name="launch_openni2"      default="true"/>
+
+    <!-- ARUCO ARGS -->
     <arg name="markerSize"      default="0.16"/>    <!-- in m -->
     <arg name="side"            default="left"/>
-    <arg name="ref_frame"       default=""/>  <!-- leave empty and the pose will be published wrt param parent_name -->
+    <arg name="ref_frame"       default="camera_link"/>  <!-- leave empty and the pose will be published wrt param parent_name -->
     <arg name="marker_frame"    default="aruco_marker_frame"/>
 
     <!-- ADDITIONAL ARGS -->
     <arg name="camera_info_topic"       default="/camera/rgb/camera_info"/>
     <arg name="image_topic"             default="/camera/rgb/image_raw"/>
-    <arg name="camera_frame"            default="camera_rgb_optical_frame"/>
+    <arg name="camera_frame"            default="camera_link"/>
+
+    <!-- OPENNI2 -->
+    <group if="$(arg launch_openni2)">
+        <include file="$(find openni2_launch)/launch/openni2.launch"></include>
+    </group>
 
     <!-- ARUCO MARKER PUBLISHER -->
     <node pkg="aruco_ros" type="marker_publisher" name="aruco_marker_publisher">
