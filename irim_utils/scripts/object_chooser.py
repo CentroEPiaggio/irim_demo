@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-''' This node chooses the object to be grasped:
+""" This node chooses the object to be grasped:
     - the marker with id = 0 is considered robot marker
     - the other markers are objects to be grasped
     - the one with smallest id will be chosen
-    - the pose will be changed for easing the grasping '''
+    - the pose will be changed for easing the grasping """
 
 # Python libs
 import sys, time
@@ -29,7 +29,7 @@ class object_pose_remapper:
         ''' Initializing the subscriber to aruco 
         and the publisher to object_pose '''
 
-        # Subsciber
+        # Subscriber
         self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size = 1)
 
         # Publisher
@@ -60,7 +60,7 @@ class object_pose_remapper:
             self.pub.publish(pose_stamped)
 
 def main(args):
-    '''Initializes and cleanup ros node'''
+    '''I nitializes and cleanup ros node '''
     rospy.init_node('object_pose_remapper', anonymous=True)
 
     opr = object_pose_remapper()
