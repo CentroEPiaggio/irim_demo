@@ -36,7 +36,7 @@ DEBUG = False
 
 max_id = 999
 robot_id = 0
-rob_marker = [0.17, 0, 0.035, 0, 0, 0]
+rob_marker = [0.17, 0, -0.035, 0, 0, 0]
 
 world_frame_name = "world"
 object_frame_name = "object"
@@ -121,7 +121,7 @@ class ObjectPoseRemapper:
         print(self.rob_maker_frame_c)
         print("rob_maker_frame_w is")
         print(self.rob_maker_frame_w)
-        self.cam_frame_w = self.rob_maker_frame_c.Inverse() * self.rob_maker_frame_w
+        self.cam_frame_w = self.rob_maker_frame_w * self.rob_maker_frame_c.Inverse()
 
         if VERBOSE:
             print "The camera in world is"
