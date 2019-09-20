@@ -36,11 +36,11 @@ DEBUG = False
 
 max_id = 999
 robot_id = 0
-rob_marker = [0, 0, 0, 0, 0, 0]
+rob_marker = [0.17, 0, 0.035, 0, 0, 0]
 
 world_frame_name = "world"
 object_frame_name = "object"
-camera_frame_name = "camera"
+camera_frame_name = "camera_link"
 
 input_topic = "aruco_marker_publisher/markers"
 output_ns = "irim_demo/"
@@ -95,7 +95,8 @@ class ObjectPoseRemapper:
             self.broadcast_tf(self.obj_frame_w, object_frame_name, world_frame_name)
 
         # Publishing the object aruco Marker message to the output_aruco_topic
-        self.aruco_pub.publish(self.chosen_obj_aruco)
+        if self.chosen_obj_aruco != None:
+            self.aruco_pub.publish(self.chosen_obj_aruco)
 
     def compute_camera_frame(self, data):
         # Simple function which computes the camera frame from object pose in camera
@@ -116,7 +117,12 @@ class ObjectPoseRemapper:
         self.rob_maker_frame_c = PyKDL.Frame(rob_marker_rot_c, rob_marker_tra_c)
 
         # Compute the camera frame in world
-        self.cam_frame_w = self.rob_maker_frame_w * self.rob_maker_frame_c.Inverse()
+        print("rob_maker_frame_c is")
+        print(self.rob_maker_frame_c)
+        print("rob_maker_frame_w is")
+        print(self.rob_maker_frame_w)
+        self.cam_frame_w = self.rob_maker_frame_c.Inverse() * self.rob_maker_frame_w
+
         if VERBOSE:
             print "The camera in world is"
             print(self.cam_frame_w)
