@@ -28,19 +28,23 @@ import PyKDL
 
 from geometry_msgs.msg import Pose
 from aruco_msgs.msg import MarkerArray
+from aruco_msgs.msg import Marker
 from std_msgs.msg import UInt32MultiArray
 
 VERBOSE = False
+DEBUG = False
 
 max_id = 999
-robot_id = 25
-rob_marker = [0, 0, 0, 0 ,0, 0]
+robot_id = 0
+rob_marker = [0, 0, 0, 0, 0, 0]
 
-world_frame_name = "/world"
+world_frame_name = "world"
+object_frame_name = "object"
+camera_frame_name = "camera"
 
 input_topic = "aruco_marker_publisher/markers"
 output_ns = "irim_demo/"
-output_pose_topic = output_ns + "pose_chosen_object"            # maybe not needed
+output_pose_topic = output_ns + "pose_chosen_object"  # maybe not needed
 output_aruco_topic = output_ns + "aruco_chosen_object"
 
 
@@ -54,7 +58,7 @@ class ObjectPoseRemapper:
 
         # Publishers
         self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)  # For task_sequencer (testing)
-        self.aruco_pub = rospy.Publisher(output_aruco_topic, Pose, queue_size=10)  # For state machine
+        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)  # For state machine
 
         # Other instances set as None
         self.rob_maker_frame_w = None
@@ -62,6 +66,7 @@ class ObjectPoseRemapper:
         self.cam_frame_w = None
         self.obj_maker_frame_c = None
         self.obj_frame_w = None
+        self.chosen_obj_aruco = None
 
         if VERBOSE:
             print "Subscribed to " + input_topic
@@ -82,20 +87,23 @@ class ObjectPoseRemapper:
 
         # Anyways extract the poses of robot marker and publish camera tf
         self.compute_camera_frame(data)
-        self.broadcast_tf(self.cam_frame_w, world_frame_name)
+        self.broadcast_tf(self.cam_frame_w, camera_frame_name, world_frame_name)
 
         # Now if any, choose the object an publish the relevant stuff
-        if len(data.markers) > 1:                  # hp: if there's only one marker, it's the robot marker
-            self.choose_publish_object(data)
-            self.broadcast_tf(self.obj_frame_w, world_frame_name)
+        if len(data.markers) > 1:  # hp: if there's only one marker, it's the robot marker
+            self.choose_object(data)
+            self.broadcast_tf(self.obj_frame_w, object_frame_name, world_frame_name)
+
+        # Publishing the object aruco Marker message to the output_aruco_topic
+        self.aruco_pub.publish(self.chosen_obj_aruco)
 
     def compute_camera_frame(self, data):
         # Simple function which computes the camera frame from object pose in camera
 
-        rob_marker_pose_c = data.markers[0].pose.pose       # safety assignment
+        rob_marker_pose_c = data.markers[0].pose.pose  # safety assignment
         for ind in range(len(data.markers)):
             if data.markers[ind].id == robot_id:
-                rob_marker_pose_c = data.markers[ind].pose.pose     # wrt camera
+                rob_marker_pose_c = data.markers[ind].pose.pose  # wrt camera
                 break
         else:
             rospy.logwarn(rospy.get_caller_id() + "Beware: I have found no marker with robot_id... Using default!")
@@ -104,7 +112,7 @@ class ObjectPoseRemapper:
         rob_marker_tra_c = PyKDL.Vector(rob_marker_pose_c.position.x, rob_marker_pose_c.position.y,
                                         rob_marker_pose_c.position.z)
         rob_marker_rot_c = PyKDL.Rotation.Quaternion(rob_marker_pose_c.orientation.x, rob_marker_pose_c.orientation.y,
-                                    rob_marker_pose_c.orientation.z, rob_marker_pose_c.orientation.w)
+                                                     rob_marker_pose_c.orientation.z, rob_marker_pose_c.orientation.w)
         self.rob_maker_frame_c = PyKDL.Frame(rob_marker_rot_c, rob_marker_tra_c)
 
         # Compute the camera frame in world
@@ -113,20 +121,23 @@ class ObjectPoseRemapper:
             print "The camera in world is"
             print(self.cam_frame_w)
 
-    def choose_publish_object(self, data):
-        # Simple function which chooses the object if any and publishes the aruco message to topic
+    def choose_object(self, data):
+        # Simple function which chooses the object if any
 
         # Choose the object with the lowest marker id
         obj_marker_pose_c = None
         lowest_ind = max_id
         for ind in range(len(data.markers)):
-            print("The lowest id is " + str(lowest_ind) + " and the marker id is " + str(data.markers[ind].id))
+            if DEBUG:
+                print("The lowest id is " + str(lowest_ind) + " and the marker id is " + str(data.markers[ind].id))
             if data.markers[ind].id != robot_id and data.markers[ind].id <= lowest_ind:
                 lowest_ind = data.markers[ind].id
                 obj_marker_pose_c = data.markers[ind].pose.pose
+                self.chosen_obj_aruco = data.markers[ind]
 
-        print("The chosen marker id is " + str(lowest_ind))
-        
+        if DEBUG:
+            print("The chosen marker id is " + str(lowest_ind))
+
         # Transform it to PyKDL Frame
         obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y,
                                         obj_marker_pose_c.position.z)
@@ -137,9 +148,11 @@ class ObjectPoseRemapper:
         # Compute the object frame in world
         self.obj_frame_w = self.cam_frame_w * self.obj_maker_frame_c
 
-    def broadcast_tf(self, frame, ref):
+    def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)
         br = tf.TransformBroadcaster()
+        br.sendTransform((frame.p.x(), frame.p.y(), frame.p.z()), frame.M.GetQuaternion(),
+                         rospy.Time.now(), name, ref)
 
 
 def main():
@@ -156,23 +169,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-    #
-    # # Compute the needed poses
-    #
-    # # Publish the camera tf always but the object stuff will be published only if there is more than one marker
-    # # In fact, if there is only one marker, that will be the robot marker
-    #
-    # if len(data.markers) == 1 and data.markers[0].id == robot_id:
-    #     print "No objects to be grasped! Only robot!"
-    # else:
-    #     obj_pose = data.markers[1].pose.pose
-    #
-    #     # Filling up the new message
-    #     pose_stamped = Pose()
-    #     pose_stamped.header.stamp = rospy.Time.now()
-    #     pose_stamped.pose = obj_pose
-    #
-    #     # Publish to output_topic
-    #     self.pub.publish(pose_stamped)
