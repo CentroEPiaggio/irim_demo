@@ -48,7 +48,7 @@ camera_frame_name = "camera_link"
 
 input_topic = "aruco_marker_publisher/markers"
 output_ns = "irim_demo/"
-output_pose_topic = output_ns + "pose_chosen_object"  # maybe not needed
+output_pose_topic = output_ns + "pose_chosen_object"  # maybe not needed (Not used as of now)
 output_aruco_topic = output_ns + "aruco_chosen_object"
 
 
@@ -61,8 +61,11 @@ class ObjectPoseRemapper:
         self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size=1)
 
         # Publishers
-        self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)  # For task_sequencer (testing)
-        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)  # For state machine
+        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)  # For state machine and task seq.
+        # self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)  # For task_sequencer (not used)
+
+        # tf Transform Broadcaster
+        self.br = tf.TransformBroadcaster()
 
         # Other instances set as None
         self.rob_maker_frame_w = None
@@ -87,7 +90,8 @@ class ObjectPoseRemapper:
 
         # Computing the fixed camera_rgb_optical_frame to camera_link transform
         cam_link_tra_rgb = PyKDL.Vector(cam_rgb_2_link[0], cam_rgb_2_link[1], cam_rgb_2_link[2])
-        cam_link_rot_rgb = PyKDL.Rotation.Quaternion(cam_rgb_2_link[3], cam_rgb_2_link[4], cam_rgb_2_link[5], cam_rgb_2_link[6])
+        cam_link_rot_rgb = PyKDL.Rotation.Quaternion(cam_rgb_2_link[3], cam_rgb_2_link[4], cam_rgb_2_link[5],
+                                                     cam_rgb_2_link[6])
         self.cam_link_frame_rgb = PyKDL.Frame(cam_link_rot_rgb, cam_link_tra_rgb)
 
     def callback(self, data):
@@ -99,6 +103,10 @@ class ObjectPoseRemapper:
         # Anyways extract the poses of robot marker and publish camera tf
         self.compute_camera_frame(data)
         self.broadcast_tf(self.cam_link_frame_w, camera_frame_name, world_frame_name)
+
+        # For debug purposes republish robot marker frame
+        if DEBUG:
+            self.broadcast_tf(self.rob_maker_frame_c, 'marker_debug', 'camera_rgb_optical_frame')
 
         # Now if any, choose the object an publish the relevant stuff
         if len(data.markers) > 1:  # hp: if there's only one marker, it's the robot marker
@@ -171,8 +179,7 @@ class ObjectPoseRemapper:
 
     def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)
-        br = tf.TransformBroadcaster()
-        br.sendTransform((frame.p.x(), frame.p.y(), frame.p.z()), frame.M.GetQuaternion(),
+        self.br.sendTransform((frame.p.x(), frame.p.y(), frame.p.z()), frame.M.GetQuaternion(),
                          rospy.Time.now(), name, ref)
 
 
