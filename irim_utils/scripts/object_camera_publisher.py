@@ -13,6 +13,8 @@
     - the other markers are objects to be grasped
     - the one with smallest id will be chosen
     - the pose will be changed for easing the grasping
+
+    Autors: George Jose Pollayil, Mathew Jose Pollayil
 """
 
 # Python libs
@@ -36,7 +38,9 @@ DEBUG = False
 
 max_id = 999
 robot_id = 0
-rob_marker = [0.17, 0, -0.035, 0, 0, 0]
+# rob_marker = [0.17, 0, -0.035, 0, 0, 0]
+rob_marker = [0, 0, 0, 0, 0, 0]
+cam_rgb_2_link = [-0.045, 0.000, 0.000, 0.500, -0.500, 0.500, 0.500]
 
 world_frame_name = "world"
 object_frame_name = "object"
@@ -63,7 +67,9 @@ class ObjectPoseRemapper:
         # Other instances set as None
         self.rob_maker_frame_w = None
         self.rob_maker_frame_c = None
-        self.cam_frame_w = None
+        self.cam_link_frame_w = None
+        self.cam_rgb_frame_w = None
+        self.cam_link_frame_rgb = None
         self.obj_maker_frame_c = None
         self.obj_frame_w = None
         self.chosen_obj_aruco = None
@@ -79,6 +85,11 @@ class ObjectPoseRemapper:
         rob_marker_rot_w = PyKDL.Rotation.EulerZYX(rob_marker[3], rob_marker[4], rob_marker[5])
         self.rob_maker_frame_w = PyKDL.Frame(rob_marker_rot_w, rob_marker_tra_w)
 
+        # Computing the fixed camera_rgb_optical_frame to camera_link transform
+        cam_link_tra_rgb = PyKDL.Vector(cam_rgb_2_link[0], cam_rgb_2_link[1], cam_rgb_2_link[2])
+        cam_link_rot_rgb = PyKDL.Rotation.Quaternion(cam_rgb_2_link[3], cam_rgb_2_link[4], cam_rgb_2_link[5], cam_rgb_2_link[6])
+        self.cam_link_frame_rgb = PyKDL.Frame(cam_link_rot_rgb, cam_link_tra_rgb)
+
     def callback(self, data):
         # Callback function of subscribed topic. Here the read message of pose is published to output topic
 
@@ -87,7 +98,7 @@ class ObjectPoseRemapper:
 
         # Anyways extract the poses of robot marker and publish camera tf
         self.compute_camera_frame(data)
-        self.broadcast_tf(self.cam_frame_w, camera_frame_name, world_frame_name)
+        self.broadcast_tf(self.cam_link_frame_w, camera_frame_name, world_frame_name)
 
         # Now if any, choose the object an publish the relevant stuff
         if len(data.markers) > 1:  # hp: if there's only one marker, it's the robot marker
@@ -95,7 +106,7 @@ class ObjectPoseRemapper:
             self.broadcast_tf(self.obj_frame_w, object_frame_name, world_frame_name)
 
         # Publishing the object aruco Marker message to the output_aruco_topic
-        if self.chosen_obj_aruco != None:
+        if self.chosen_obj_aruco is not None:
             self.aruco_pub.publish(self.chosen_obj_aruco)
 
     def compute_camera_frame(self, data):
@@ -117,15 +128,19 @@ class ObjectPoseRemapper:
         self.rob_maker_frame_c = PyKDL.Frame(rob_marker_rot_c, rob_marker_tra_c)
 
         # Compute the camera frame in world
-        print("rob_maker_frame_c is")
-        print(self.rob_maker_frame_c)
-        print("rob_maker_frame_w is")
-        print(self.rob_maker_frame_w)
-        self.cam_frame_w = self.rob_maker_frame_w * self.rob_maker_frame_c.Inverse()
+        self.cam_rgb_frame_w = self.rob_maker_frame_w * self.rob_maker_frame_c.Inverse()
+        self.cam_link_frame_w = self.cam_rgb_frame_w * self.cam_link_frame_rgb
 
-        if VERBOSE:
-            print "The camera in world is"
-            print(self.cam_frame_w)
+        if DEBUG:
+            print("rob_maker_frame_c is")
+            print(self.rob_maker_frame_c)
+            print("rob_maker_frame_w is")
+            print(self.rob_maker_frame_w)
+
+        print "cam_rgb_frame_w is"
+        print(self.cam_rgb_frame_w)
+        print "cam_link_frame_w is"
+        print(self.cam_link_frame_w)
 
     def choose_object(self, data):
         # Simple function which chooses the object if any
@@ -152,7 +167,7 @@ class ObjectPoseRemapper:
         self.obj_maker_frame_c = PyKDL.Frame(obj_marker_rot_c, obj_marker_tra_c)
 
         # Compute the object frame in world
-        self.obj_frame_w = self.cam_frame_w * self.obj_maker_frame_c
+        self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
 
     def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)
