@@ -1,5 +1,9 @@
 <launch>
 
+    <!-- GENERAL ARGS -->
+    <arg name="launch_rviz"      default="false"/>
+
+    <!-- OPENNI2 ARGS -->
     <arg name="launch_openni2"      default="true"/>
     <arg name="openni2_frame"      default="camera_rgb_optical_frame"/>
 
@@ -34,6 +38,8 @@
     </node>
 
     <!-- RViz for visualization -->
-    <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find irim_demo)/config/trial_markers.rviz"/>
+    <group if="$(arg launch_rviz)">
+        <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find irim_demo)/config/trial_markers.rviz"/>
+    </group>
 
 </launch>
