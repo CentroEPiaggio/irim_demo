@@ -1,7 +1,7 @@
 <launch>
 
     <!-- GENERAL ARGS -->
-    <arg name="launch_rviz"      default="false"/>
+    <arg name="launch_rviz"      default="true"/>
 
     <!-- OPENNI2 ARGS -->
     <arg name="launch_openni2"      default="true"/>
