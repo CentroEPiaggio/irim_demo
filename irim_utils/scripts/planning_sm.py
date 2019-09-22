@@ -34,7 +34,7 @@ DEBUG = False
 VERBOSE = True
 
 # Topic and service names
-object_topic = "aruco_marker_publisher/markers"
+object_topic = "irim_demo/aruco_chosen_object"
 set_obj_service_name = '/set_object'
 grasp_service_name = '/grasp_task'
 place_service_name = '/place_task'
@@ -42,9 +42,9 @@ home_service_name = '/home_task'
 
 # A dictionary associating ids with object names
 obj_dict = {
-    1 : 'ball',
-    2 : 'teddy',
-    3 : 'two_cubes'
+    1: 'ball',
+    2: 'teddy',
+    3: 'two_cubes'
 }
 
 
@@ -128,8 +128,10 @@ class PrepareGrasp(smach.State):
 
         # Change state according to result
         if set_obj_res.result:
+            rospy.loginfo("In PrepareGrasp, no problems: going to grasp!")
             return 'go_to_grasp'
         else:
+            rospy.loginfo("In PrepareGrasp, errors: going to wait!")
             return 'go_to_wait'
 
     def obj_callback(self, data):
@@ -160,8 +162,10 @@ class GraspService(smach.State):
 
         # Changing states according to res
         if set_bool_res.success:
+            rospy.loginfo("In GraspService, no problems: going to check!")
             return 'go_to_check'
         else:
+            rospy.loginfo("In GraspService, errors: going to home!")
             return 'error_grasp'
 
 
@@ -203,7 +207,7 @@ class CheckGrasp(smach.State):
 # State PlaceService
 class PlaceService(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_wait', 'error_place'])
+        smach.State.__init__(self, outcomes=['go_to_home'])
 
         # Service Proxy to place service
         self.place_client = rospy.ServiceProxy(place_service_name, SetBool)
@@ -216,11 +220,9 @@ class PlaceService(smach.State):
         set_bool_req = SetBoolRequest(True)
         set_bool_res = self.place_client(set_bool_req)
 
-        # Changing states according to res
-        if set_bool_res.success:
-            return 'go_to_wait'
-        else:
-            return 'error_place'
+        # Anyways go to home
+        rospy.loginfo("In PlaceService, anyways going to home!")
+        return 'go_to_home'
 
 
 # State HomeService
@@ -248,38 +250,40 @@ class HomeService(smach.State):
             return 'exit_sm'
 
 
-# Defining the State Machine
+# DEFINING THE STATE MACHINE
+
 def main():
     rospy.init_node('planning_sm')
 
     # Waiting for the necessary services
-    rospy.wait_for_service(set_obj_service_name)
-    rospy.wait_for_service(grasp_service_name)
-    rospy.wait_for_service(place_service_name)
-    rospy.wait_for_service(home_service_name)
+    rospy.loginfo("Before starting the state machine, waiting for the services!")
+    # rospy.wait_for_service(set_obj_service_name)
+    # rospy.wait_for_service(grasp_service_name)
+    # rospy.wait_for_service(place_service_name)
+    # rospy.wait_for_service(home_service_name)
 
     # Creating the top level state machine
-    sm_top = smach.StateMachine(outcomes=[])
+    sm_top = smach.StateMachine(outcomes=['stop_everything'])
 
     # Open the container
     with sm_top:
         # The entering point is Wait
         smach.StateMachine.add('WAIT', Wait(),
                                transitions={'no_obj_in_view': 'NOTHING_TO_DO',
-                                            'obj_in_view': 'PREPARE_GRASP'})
+                                            'obj_in_view': 'PICK_AND_PLACE'})
 
         # The second outer state is NotingToDo
         smach.StateMachine.add('NOTHING_TO_DO', NothingToDo(),
                                transitions={'go_to_wait': 'WAIT'})
 
         # Create the sub state machine which does all the planning
-        sm_sub = smach.StateMachine(outcomes=['go_to_wait'])
+        sm_sub = smach.StateMachine(outcomes=['exit_pick_and_place', 'exit_all'])
 
         # Open the sub container
         with sm_sub:
             # The entering point is PrepareGrasp
             smach.StateMachine.add('PREPARE_GRASP', PrepareGrasp(),
-                                   transitions={'go_to_wait': 'WAIT',
+                                   transitions={'go_to_wait': 'exit_pick_and_place',
                                                 'go_to_grasp': 'GRASP_SERVICE'})
 
             # The service state for grasping
@@ -287,12 +291,36 @@ def main():
                                    transitions={'go_to_check': 'CHECK_GRASP',
                                                 'error_grasp': 'HOME_SERVICE'})
 
-        smach.StateMachine.add('SUB', sm_sub,
-                               transitions={'outcome4': 'outcome5'})
+            # The state for checking grasp success
+            smach.StateMachine.add('CHECK_GRASP', CheckGrasp(),
+                                   transitions={'go_to_place': 'PLACE_SERVICE',
+                                                'try_regrasp': 'GRASP_SERVICE'})
+
+            # The state for placing the grasped object
+            smach.StateMachine.add('PLACE_SERVICE', PlaceService(),
+                                   transitions={'go_to_home': 'HOME_SERVICE'})
+
+            # The state for going to home
+            smach.StateMachine.add('HOME_SERVICE', HomeService(),
+                                   transitions={'go_to_wait': 'exit_pick_and_place',
+                                                'exit_sm': 'exit_all'})
+
+        smach.StateMachine.add('PICK_AND_PLACE', sm_sub,
+                               transitions={'exit_pick_and_place': 'WAIT',
+                                            'exit_all': 'stop_everything'})
+
+    # Create and start the introspection server
+    sis = smach_ros.IntrospectionServer('planning_sm', sm_top, '/SM_TOP')
+    sis.start()
 
     # Execute SMACH plan
     outcome = sm_top.execute()
 
+    # Wait for ctrl-c to stop the application
+    rospy.spin()
+    sis.stop()
+
+# THE MAIN
 
 if __name__ == '__main__':
     main()
