@@ -168,7 +168,8 @@ class GraspService(smach.State):
 # State CheckGrasp
 class CheckGrasp(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp'])
+        smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp'],
+                             input_keys=['check_grasp_in'])
 
         # Subscriber to object pose and id state and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
@@ -178,9 +179,16 @@ class CheckGrasp(smach.State):
         if VERBOSE:
             rospy.loginfo("I'm checking if I really grasped.")
 
-        # TODO: Get the userdata from PrepareGrasp
-        # TODO: Listen to object_topic and check if grasped: if so go to place, else try to regrasp
-        # TODO: Need to check if msg is None
+        # The userdata given by PrepareGrasp used to check grasp success
+        if self.last_marker_msg is None:
+            rospy.loginfo("In CheckGrasp I found no objects in scene. Supposing grasp to be successful!")
+            return 'go_to_place'
+        elif self.last_marker_msg.id != userdata.id:
+            rospy.loginfo("In CheckGrasp I found other object in scene. Supposing grasp to be successful!")
+            return 'go_to_place'
+        else:
+            rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful!")
+            return 'try_regrasp'
 
     def obj_callback(self, data):
         if self.last_marker_msg is None:
@@ -218,7 +226,7 @@ class PlaceService(smach.State):
 # State HomeService
 class HomeService(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_wait'])
+        smach.State.__init__(self, outcomes=['go_to_wait', 'exit_sm'])
 
         # Service Proxy to home service
         self.home_client = rospy.ServiceProxy(home_service_name, SetBool)
@@ -231,8 +239,13 @@ class HomeService(smach.State):
         set_bool_req = SetBoolRequest(True)
         set_bool_res = self.home_client(set_bool_req)
 
-        # Anyways go to wait
-        return 'go_to_wait'
+        # If ok go to wait, else exit state machine
+        if set_bool_res.success:
+            rospy.loginfo("In HomeService, no problems: going to wait!")
+            return 'go_to_wait'
+        else:
+            rospy.logerr("In HomeService, errors happened: exiting state machine!")
+            return 'exit_sm'
 
 
 # Defining the State Machine
