@@ -145,10 +145,10 @@ class ObjectPoseRemapper:
             print("rob_maker_frame_w is")
             print(self.rob_maker_frame_w)
 
-        print "cam_rgb_frame_w is"
-        print(self.cam_rgb_frame_w)
-        print "cam_link_frame_w is"
-        print(self.cam_link_frame_w)
+            print "cam_rgb_frame_w is"
+            print(self.cam_rgb_frame_w)
+            print "cam_link_frame_w is"
+            print(self.cam_link_frame_w)
 
     def choose_object(self, data):
         # Simple function which chooses the object if any
