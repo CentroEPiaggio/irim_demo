@@ -546,10 +546,12 @@ Visualization Manager:
         camera_depth_optical_frame:
           Value: false
         camera_link:
-          Value: true
+          Value: false
         camera_rgb_frame:
           Value: false
         camera_rgb_optical_frame:
+          Value: true
+        object:
           Value: true
         panda_EE:
           Value: false
@@ -655,7 +657,7 @@ Visualization Manager:
       Name: TF
       Show Arrows: false
       Show Axes: true
-      Show Names: false
+      Show Names: true
       Tree:
         world:
           camera_link:
@@ -665,6 +667,8 @@ Visualization Manager:
             camera_rgb_frame:
               camera_rgb_optical_frame:
                 {}
+          object:
+            {}
           panda_link0:
             panda_link1:
               panda_link2:
@@ -729,7 +733,8 @@ Visualization Manager:
       Marker Topic: /rviz_visual_tools
       Name: Goal Pose
       Namespaces:
-        {}
+        Text: true
+        goal pose: true
       Queue Size: 100
       Value: true
     - Class: moveit_rviz_plugin/Trajectory
@@ -1028,10 +1033,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.325398117
+      Pitch: 0.500398517
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.12355852
+      Yaw: 5.35855532
     Saved: ~
 Window Geometry:
   Displays:
