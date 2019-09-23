@@ -3,7 +3,8 @@ Panels:
     Help Height: 89
     Name: Displays
     Property Tree Widget:
-      Expanded: ~
+      Expanded:
+        - /TF1/Frames1
       Splitter Ratio: 0.578947365
     Tree Height: 363
   - Class: rviz/Selection
@@ -541,16 +542,14 @@ Visualization Manager:
       Frames:
         All Enabled: false
         camera_depth_frame:
-          Value: true
+          Value: false
         camera_depth_optical_frame:
-          Value: true
+          Value: false
         camera_link:
           Value: true
         camera_rgb_frame:
-          Value: true
+          Value: false
         camera_rgb_optical_frame:
-          Value: true
-        object:
           Value: true
         panda_EE:
           Value: false
@@ -656,7 +655,7 @@ Visualization Manager:
       Name: TF
       Show Arrows: false
       Show Axes: true
-      Show Names: true
+      Show Names: false
       Tree:
         world:
           camera_link:
@@ -666,8 +665,6 @@ Visualization Manager:
             camera_rgb_frame:
               camera_rgb_optical_frame:
                 {}
-          object:
-            {}
           panda_link0:
             panda_link1:
               panda_link2:
@@ -1016,7 +1013,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.62552428
+      Distance: 2.86472917
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -1031,10 +1028,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.290398061
+      Pitch: 0.325398117
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.26356602
+      Yaw: 5.12355852
     Saved: ~
 Window Geometry:
   Displays:
