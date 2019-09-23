@@ -25,6 +25,7 @@ from smach_ros import ServiceState
 
 # Aruco Imports
 from aruco_msgs.msg import Marker
+from aruco_msgs.msg import MarkerArray
 
 # Custom imports (services for panda_softhand_control task_sequencer)
 from std_srvs.srv import SetBool, SetBoolRequest
@@ -38,6 +39,7 @@ max_id = 999            # If you change this, change it also in object camera pu
 
 # Topic and service names
 object_topic = "irim_demo/aruco_chosen_object"
+aruco_markers_topic = "aruco_marker_publisher/markers"
 set_obj_service_name = '/set_object_service'
 grasp_service_name = '/grasp_task_service'
 place_service_name = '/place_task_service'
@@ -167,9 +169,13 @@ class CheckGrasp(smach.State):
         smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp', 'go_to_home'],
                              input_keys=['check_grasp_in'])
 
-        # Subscriber to object pose and id state and the saved message
+        # Subscriber to object pose and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
+
+        # Subscriber to aruco markers and the saved message
+        self.obj_sub = rospy.Subscriber(aruco_markers_topic, MarkerArray, self.obj_callback_aruco, queue_size=1)
+        self.last_aruco_markers_msg = None
 
         # Service Proxy to hand opening service
         self.hand_client = rospy.ServiceProxy(hand_service_name, hand_control)
@@ -178,18 +184,24 @@ class CheckGrasp(smach.State):
         if VERBOSE:
             rospy.loginfo("I'm checking if I really grasped.")
 
+        # Check if the passed userdata id from PrepareGrasp is in the aruco array
+        id_found = False
+        for ind in range(len(self.last_aruco_markers_msg.markers)):
+            if self.last_aruco_markers_msg.markers[ind].id == userdata.check_grasp_in.id:
+                id_found = True
+
         print("I got the following marker id from PrepareGrasp: ")
         print(userdata.check_grasp_in.id)
-        print("The last marker id in CheckGrasp: ")
-        print(self.last_marker_msg.id)
+        print("The id_found is: ")
+        print(id_found)
 
 
         # The userdata given by PrepareGrasp used to check grasp success
         if self.last_marker_msg is None:
             rospy.loginfo("In CheckGrasp I found no objects in scene. Supposing grasp to be successful!")
             return 'go_to_place'
-        elif self.last_marker_msg.id != userdata.check_grasp_in.id:
-            rospy.loginfo("In CheckGrasp I found other object in scene. Supposing grasp to be successful!")
+        elif not id_found:
+            rospy.loginfo("In CheckGrasp I did not find the same object in scene. Supposing grasp to be successful!")
             return 'go_to_place'
         else:
             rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful! Opening hand and retying...")
@@ -206,6 +218,9 @@ class CheckGrasp(smach.State):
 
     def obj_callback(self, data):
         self.last_marker_msg = data
+
+    def obj_callback_aruco(self, data):
+        self.last_aruco_markers_msg = data
 
 
 # State PlaceService
