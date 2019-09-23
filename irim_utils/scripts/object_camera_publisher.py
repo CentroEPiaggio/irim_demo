@@ -37,7 +37,7 @@ from std_msgs.msg import UInt32MultiArray
 VERBOSE = False
 DEBUG = False
 
-max_id = 999
+max_id = 999                # If you change this, change it also in object camera publisher
 robot_id = 0
 # rob_marker = [0.17, 0, -0.025, -1.5707, -3.1415, 0]
 # rob_marker = [0, 0, 0, 0, 0, 0]
@@ -117,6 +117,11 @@ class ObjectPoseRemapper:
 
         # Publishing the object aruco Marker message to the output_aruco_topic
         if self.chosen_obj_aruco is not None:
+            # Check if there is only one marker; if so, change the id of the object to be published
+            if len(data.markers) <= 1:
+                self.chosen_obj_aruco.id = max_id + 1
+            
+            # Now publish
             self.aruco_pub.publish(self.chosen_obj_aruco)
             self.pose_pub.publish(self.chosen_obj_aruco.pose.pose)
 

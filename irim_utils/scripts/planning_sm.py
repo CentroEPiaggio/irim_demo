@@ -29,22 +29,26 @@ from aruco_msgs.msg import Marker
 # Custom imports (services for panda_softhand_control task_sequencer)
 from std_srvs.srv import SetBool, SetBoolRequest
 from panda_softhand_control.srv import set_object, set_objectRequest
+from panda_softhand_control.srv import hand_control, hand_controlRequest
 
 DEBUG = False
 VERBOSE = True
 
+max_id = 999            # If you change this, change it also in object camera publisher
+
 # Topic and service names
 object_topic = "irim_demo/aruco_chosen_object"
-set_obj_service_name = '/set_object'
-grasp_service_name = '/grasp_task'
-place_service_name = '/place_task'
-home_service_name = '/home_task'
+set_obj_service_name = '/set_object_service'
+grasp_service_name = '/grasp_task_service'
+place_service_name = '/place_task_service'
+home_service_name = '/home_task_service'
+hand_service_name = '/hand_control_service'
 
 # A dictionary associating ids with object names
 obj_dict = {
-    1: 'ball',
-    2: 'teddy',
-    3: 'two_cubes'
+    1: 'object1',
+    2: 'object2',
+    3: 'object3'
 }
 
 
@@ -67,19 +71,13 @@ class Wait(smach.State):
 
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: checking its sequential no. to know if it's new
-        if self.last_marker_msg is None:
+        if self.last_marker_msg is None or self.last_marker_msg.id == max_id + 1:
             return 'no_obj_in_view'
         else:
             return 'obj_in_view'
 
     def obj_callback(self, data):
-        if self.last_marker_msg is None:
-            self.last_marker_msg = data
-        else:
-            if self.last_marker_msg.header.stamp == data.header.stamp:
-                self.last_marker_msg = None
-            else:
-                self.last_marker_msg = data
+        self.last_marker_msg = data
 
 
 # State NothingToDO: auxiliary state for Wait in order to avoid self transitions
@@ -127,7 +125,7 @@ class PrepareGrasp(smach.State):
         userdata.prepare_grasp_out = self.last_marker_msg
 
         # Change state according to result
-        if set_obj_res.result:
+        if set_obj_res.result and self.last_marker_msg is not None and self.last_marker_msg.id != max_id + 1:
             rospy.loginfo("In PrepareGrasp, no problems: going to grasp!")
             return 'go_to_grasp'
         else:
@@ -135,13 +133,7 @@ class PrepareGrasp(smach.State):
             return 'go_to_wait'
 
     def obj_callback(self, data):
-        if self.last_marker_msg is None:
-            self.last_marker_msg = data
-        else:
-            if self.last_marker_msg.header.stamp == data.header.stamp:
-                self.last_marker_msg = None
-            else:
-                self.last_marker_msg = data
+        self.last_marker_msg = data
 
 
 # State GraspService
@@ -172,36 +164,48 @@ class GraspService(smach.State):
 # State CheckGrasp
 class CheckGrasp(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp'],
+        smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp', 'go_to_home'],
                              input_keys=['check_grasp_in'])
 
         # Subscriber to object pose and id state and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
 
+        # Service Proxy to hand opening service
+        self.hand_client = rospy.ServiceProxy(hand_service_name, hand_control)
+
     def execute(self, userdata):
         if VERBOSE:
             rospy.loginfo("I'm checking if I really grasped.")
+
+        print("I got the following marker id from PrepareGrasp: ")
+        print(userdata.check_grasp_in.id)
+        print("The last marker id in CheckGrasp: ")
+        print(self.last_marker_msg.id)
+
 
         # The userdata given by PrepareGrasp used to check grasp success
         if self.last_marker_msg is None:
             rospy.loginfo("In CheckGrasp I found no objects in scene. Supposing grasp to be successful!")
             return 'go_to_place'
-        elif self.last_marker_msg.id != userdata.id:
+        elif self.last_marker_msg.id != userdata.check_grasp_in.id:
             rospy.loginfo("In CheckGrasp I found other object in scene. Supposing grasp to be successful!")
             return 'go_to_place'
         else:
-            rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful!")
+            rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful! Opening hand and retying...")
+            hand_control_req = hand_controlRequest()
+            hand_control_req.goal_syn = 0.0
+            hand_control_req.goal_duration = 2.0
+            hand_control_res = self.hand_client(hand_control_req)
+
+            if not hand_control_res:
+                rospy.logerr("In CheckGrasp I could not reopen the hand for regrasing! Going to home...")
+                return 'go_to_home'
+
             return 'try_regrasp'
 
     def obj_callback(self, data):
-        if self.last_marker_msg is None:
-            self.last_marker_msg = data
-        else:
-            if self.last_marker_msg.header.stamp == data.header.stamp:
-                self.last_marker_msg = None
-            else:
-                self.last_marker_msg = data
+        self.last_marker_msg = data
 
 
 # State PlaceService
@@ -278,13 +282,15 @@ def main():
 
         # Create the sub state machine which does all the planning
         sm_sub = smach.StateMachine(outcomes=['exit_pick_and_place', 'exit_all'])
+        sm_sub.userdata.passed_marker_msg = None
 
         # Open the sub container
         with sm_sub:
             # The entering point is PrepareGrasp
             smach.StateMachine.add('PREPARE_GRASP', PrepareGrasp(),
                                    transitions={'go_to_wait': 'exit_pick_and_place',
-                                                'go_to_grasp': 'GRASP_SERVICE'})
+                                                'go_to_grasp': 'GRASP_SERVICE'},
+                                    remapping={'prepare_grasp_out':'passed_marker_msg'})
 
             # The service state for grasping
             smach.StateMachine.add('GRASP_SERVICE', GraspService(),
@@ -294,7 +300,9 @@ def main():
             # The state for checking grasp success
             smach.StateMachine.add('CHECK_GRASP', CheckGrasp(),
                                    transitions={'go_to_place': 'PLACE_SERVICE',
-                                                'try_regrasp': 'GRASP_SERVICE'})
+                                                'try_regrasp': 'GRASP_SERVICE',
+                                                'go_to_home' : 'HOME_SERVICE'},
+                                    remapping={'check_grasp_in':'passed_marker_msg'})
 
             # The state for placing the grasped object
             smach.StateMachine.add('PLACE_SERVICE', PlaceService(),
