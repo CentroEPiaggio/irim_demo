@@ -27,6 +27,7 @@ import roslib
 import rospy
 import tf
 import PyKDL
+import tf_conversions.posemath as pm
 
 from geometry_msgs.msg import Pose
 from aruco_msgs.msg import MarkerArray
@@ -38,8 +39,9 @@ DEBUG = False
 
 max_id = 999
 robot_id = 0
-# rob_marker = [0.17, 0, -0.035, 0, 0, 0]
-rob_marker = [0, 0, 0, 0, 0, 0]
+# rob_marker = [0.17, 0, -0.025, -1.5707, -3.1415, 0]
+# rob_marker = [0, 0, 0, 0, 0, 0]
+rob_marker = [0.26, -0.26, -0.025, 1.5707, 0, 3.1415]
 cam_rgb_2_link = [-0.045, 0.000, 0.000, 0.500, -0.500, 0.500, 0.500]
 
 world_frame_name = "world"
@@ -48,8 +50,8 @@ camera_frame_name = "camera_link"
 
 input_topic = "aruco_marker_publisher/markers"
 output_ns = "irim_demo/"
-output_pose_topic = output_ns + "pose_chosen_object"  # maybe not needed (Not used as of now)
-output_aruco_topic = output_ns + "aruco_chosen_object"
+output_pose_topic = output_ns + "chosen_object"             # This will be used by task_sequencer
+output_aruco_topic = output_ns + "aruco_chosen_object"      # This will be used by state machine
 
 
 class ObjectPoseRemapper:
@@ -61,8 +63,8 @@ class ObjectPoseRemapper:
         self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size=1)
 
         # Publishers
-        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)  # For state machine and task seq.
-        # self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)  # For task_sequencer (not used)
+        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)     # For state machine
+        self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)         # For task_sequencer
 
         # tf Transform Broadcaster
         self.br = tf.TransformBroadcaster()
@@ -85,7 +87,7 @@ class ObjectPoseRemapper:
 
         # Computing the fixed world to robot_marker transform
         rob_marker_tra_w = PyKDL.Vector(rob_marker[0], rob_marker[1], rob_marker[2])
-        rob_marker_rot_w = PyKDL.Rotation.EulerZYX(rob_marker[3], rob_marker[4], rob_marker[5])
+        rob_marker_rot_w = PyKDL.Rotation.EulerZYX(rob_marker[5], rob_marker[4], rob_marker[3])
         self.rob_maker_frame_w = PyKDL.Frame(rob_marker_rot_w, rob_marker_tra_w)
 
         # Computing the fixed camera_rgb_optical_frame to camera_link transform
@@ -116,6 +118,7 @@ class ObjectPoseRemapper:
         # Publishing the object aruco Marker message to the output_aruco_topic
         if self.chosen_obj_aruco is not None:
             self.aruco_pub.publish(self.chosen_obj_aruco)
+            self.pose_pub.publish(self.chosen_obj_aruco.pose.pose)
 
     def compute_camera_frame(self, data):
         # Simple function which computes the camera frame from object pose in camera
@@ -170,12 +173,16 @@ class ObjectPoseRemapper:
         # Transform it to PyKDL Frame
         obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y,
                                         obj_marker_pose_c.position.z)
-        obj_marker_rot_c = PyKDL.Rotation.Quaternion(obj_marker_pose_c.orientation.x, obj_marker_pose_c.orientation.y,
-                                                     obj_marker_pose_c.orientation.z, obj_marker_pose_c.orientation.w)
+        # obj_marker_rot_c = PyKDL.Rotation.Quaternion(obj_marker_pose_c.orientation.x, obj_marker_pose_c.orientation.y, 
+                                                        # obj_marker_pose_c.orientation.z, obj_marker_pose_c.orientation.w)
+        obj_marker_rot_c = self.cam_rgb_frame_w.M.Inverse()     # I want the obj to have the same rotation of world
         self.obj_maker_frame_c = PyKDL.Frame(obj_marker_rot_c, obj_marker_tra_c)
 
         # Compute the object frame in world
         self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
+
+        # Correct the aruco msg to be in world frame
+        self.chosen_obj_aruco.pose.pose = pm.toMsg(self.obj_frame_w)
 
     def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)
