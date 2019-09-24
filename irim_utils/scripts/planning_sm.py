@@ -82,18 +82,6 @@ class Wait(smach.State):
         self.last_marker_msg = data
 
 
-# State NothingToDO: auxiliary state for Wait in order to avoid self transitions
-class NothingToDo(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_wait'])
-
-    def execute(self, userdata):
-        if VERBOSE:
-            rospy.loginfo('Nothing to do for now! Going back to wait.')
-
-        return 'go_to_wait'
-
-
 # DEFINITION OF STATES OF SUB STATE MACHINE PLAN AND EXECUTE (also the service states are defined as generic states)
 
 # State PrepareGrasp
@@ -288,12 +276,8 @@ def main():
     with sm_top:
         # The entering point is Wait
         smach.StateMachine.add('WAIT', Wait(),
-                               transitions={'no_obj_in_view': 'NOTHING_TO_DO',
+                               transitions={'no_obj_in_view': 'WAIT',
                                             'obj_in_view': 'PICK_AND_PLACE'})
-
-        # The second outer state is NotingToDo
-        smach.StateMachine.add('NOTHING_TO_DO', NothingToDo(),
-                               transitions={'go_to_wait': 'WAIT'})
 
         # Create the sub state machine which does all the planning
         sm_sub = smach.StateMachine(outcomes=['exit_pick_and_place', 'exit_all'])
