@@ -41,7 +41,7 @@ max_id = 999                # If you change this, change it also in object camer
 robot_id = 0
 # rob_marker = [0.17, 0, -0.025, -1.5707, -3.1415, 0]
 # rob_marker = [0, 0, 0, 0, 0, 0]
-rob_marker = [0.30, -0.30, -0.025, 1.5707, 0, 3.1415]
+rob_marker = [0.02, -0.285, 0.0, 1.5707, 0, 3.1415]
 cam_rgb_2_link = [-0.045, 0.000, 0.000, 0.500, -0.500, 0.500, 0.500]
 
 world_frame_name = "world"
