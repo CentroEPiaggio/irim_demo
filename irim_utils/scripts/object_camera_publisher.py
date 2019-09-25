@@ -186,7 +186,7 @@ class ObjectPoseRemapper:
 
         # Compute the object frame in world
         self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
-        self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.0) # forcing the z of the obj to be 0.0 (flickering problem)
+        # self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.0) # forcing the z of the obj to be 0.0 (flickering problem)
 
         # Correct the aruco msg to be in world frame
         self.chosen_obj_aruco.pose.pose = pm.toMsg(self.obj_frame_w)
