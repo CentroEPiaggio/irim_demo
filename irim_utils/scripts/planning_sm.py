@@ -28,7 +28,7 @@ from aruco_msgs.msg import Marker
 from aruco_msgs.msg import MarkerArray
 
 # Custom imports (services for panda_softhand_control task_sequencer)
-from std_srvs.srv import SetBool, SetBoolRequest
+from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from panda_softhand_control.srv import set_object, set_objectRequest
 from panda_softhand_control.srv import hand_control, hand_controlRequest
 
@@ -151,7 +151,12 @@ class GraspService(smach.State):
 
         # Creating a service request and sending
         set_bool_req = SetBoolRequest(True)
-        set_bool_res = self.grasp_client(set_bool_req)
+        set_bool_res = SetBoolResponse()
+
+        try:
+            set_bool_res = self.grasp_client(set_bool_req)
+        except rospy.ServiceException, e:
+            print "In GraspService, Service call failed: %s"%e
 
         # Changing states according to res
         if set_bool_res.success:
@@ -236,7 +241,11 @@ class PlaceService(smach.State):
 
         # Creating a service request and sending
         set_bool_req = SetBoolRequest(True)
-        set_bool_res = self.place_client(set_bool_req)
+
+        try:
+            set_bool_res = self.place_client(set_bool_req)
+        except rospy.ServiceException, e:
+            print "In PlaceService, Service call failed: %s"%e
 
         # Anyways go to home
         rospy.loginfo("In PlaceService, anyways going to home!")
@@ -257,7 +266,12 @@ class HomeService(smach.State):
 
         # Creating a service request and sending
         set_bool_req = SetBoolRequest(True)
-        set_bool_res = self.home_client(set_bool_req)
+        set_bool_res = SetBoolResponse()
+
+        try:
+            set_bool_res = self.home_client(set_bool_req)
+        except rospy.ServiceException, e:
+            print "In HomeService, Service call failed: %s"%e
 
         # If ok go to wait, else exit state machine
         if set_bool_res.success:
