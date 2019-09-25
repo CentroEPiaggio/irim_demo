@@ -178,7 +178,7 @@ class ObjectPoseRemapper:
 
         # Transform it to PyKDL Frame
         obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y,
-                                        obj_marker_pose_c.position.z)
+                                        obj_marker_pose_c.position.z)       # I want the object also to have the same z as world
         # obj_marker_rot_c = PyKDL.Rotation.Quaternion(obj_marker_pose_c.orientation.x, obj_marker_pose_c.orientation.y, 
                                                         # obj_marker_pose_c.orientation.z, obj_marker_pose_c.orientation.w)
         obj_marker_rot_c = self.cam_rgb_frame_w.M.Inverse()     # I want the obj to have the same rotation of world
@@ -186,6 +186,7 @@ class ObjectPoseRemapper:
 
         # Compute the object frame in world
         self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
+        self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.0) # forcing the z of the obj to be 0.0 (flickering problem)
 
         # Correct the aruco msg to be in world frame
         self.chosen_obj_aruco.pose.pose = pm.toMsg(self.obj_frame_w)
