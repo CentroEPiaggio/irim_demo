@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
   - Class: rviz_visual_tools/RvizVisualToolsGui
     Name: RvizVisualToolsGui
 Toolbars:
@@ -541,18 +541,6 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        camera_depth_frame:
-          Value: false
-        camera_depth_optical_frame:
-          Value: false
-        camera_link:
-          Value: false
-        camera_rgb_frame:
-          Value: false
-        camera_rgb_optical_frame:
-          Value: true
-        object:
-          Value: true
         panda_EE:
           Value: false
         panda_K:
@@ -660,15 +648,6 @@ Visualization Manager:
       Show Names: false
       Tree:
         world:
-          camera_link:
-            camera_depth_frame:
-              camera_depth_optical_frame:
-                {}
-            camera_rgb_frame:
-              camera_rgb_optical_frame:
-                {}
-          object:
-            {}
           panda_link0:
             panda_link1:
               panda_link2:
@@ -733,8 +712,7 @@ Visualization Manager:
       Marker Topic: /rviz_visual_tools
       Name: Goal Pose
       Namespaces:
-        Text: true
-        goal pose: true
+        {}
       Queue Size: 100
       Value: true
     - Class: moveit_rviz_plugin/Trajectory
@@ -1033,10 +1011,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.460398614
+      Pitch: 0.570398569
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.64355087
+      Yaw: 5.77854681
     Saved: ~
 Window Geometry:
   Displays:
