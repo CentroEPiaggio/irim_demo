@@ -177,8 +177,7 @@ class ObjectPoseRemapper:
             print("The chosen marker id is " + str(lowest_ind))
 
         # Transform it to PyKDL Frame
-        obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y,
-                                        obj_marker_pose_c.position.z)       # I want the object also to have the same z as world
+        obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y, obj_marker_pose_c.position.z) 
         # obj_marker_rot_c = PyKDL.Rotation.Quaternion(obj_marker_pose_c.orientation.x, obj_marker_pose_c.orientation.y, 
                                                         # obj_marker_pose_c.orientation.z, obj_marker_pose_c.orientation.w)
         obj_marker_rot_c = self.cam_rgb_frame_w.M.Inverse()     # I want the obj to have the same rotation of world
