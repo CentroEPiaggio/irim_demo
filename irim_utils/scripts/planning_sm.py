@@ -50,7 +50,10 @@ hand_service_name = '/hand_control_service'
 obj_dict = {
     1: 'object1',
     2: 'object2',
-    3: 'object3'
+    3: 'object3',
+    4: 'object4',
+    5: 'object5',
+    6: 'object6'
 }
 
 
@@ -108,7 +111,15 @@ class PrepareGrasp(smach.State):
 
         # Call set object according to id
         set_obj_req = set_objectRequest()
-        set_obj_req.object_name = obj_dict.get(self.last_marker_msg.id)
+
+        # Checking if the tag id has an object associated in the dictionary
+        if self.last_marker_msg.id <= len(obj_dict):
+            set_obj_req.object_name = obj_dict.get(self.last_marker_msg.id)
+        else:
+            rospy.logerr("The id of the object is not in the objects dictionary. Assigning the default...")
+            set_obj_req.object_name = obj_dict.get(0)
+        
+        # Calling the service
         set_obj_res = self.set_obj_client(set_obj_req)
 
         # The userdata passed to CheckGrasp
