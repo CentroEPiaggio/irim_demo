@@ -185,7 +185,8 @@ class ObjectPoseRemapper:
 
         # Compute the object frame in world
         self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
-        # self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.0) # forcing the z of the obj to be 0.0 (flickering problem)
+        # forcing the z of the obj to be 0.0 (flickering problem) (it is 0.02 because of table -0.03 wrt world)
+        self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.02) 
 
         # Correct the aruco msg to be in world frame
         self.chosen_obj_aruco.pose.pose = pm.toMsg(self.obj_frame_w)
@@ -205,7 +206,7 @@ def main():
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
-        print "Shutting down ROS Image feature detector module"
+        print "Shutting down IRIM Image feature detection module"
 
 
 if __name__ == '__main__':
