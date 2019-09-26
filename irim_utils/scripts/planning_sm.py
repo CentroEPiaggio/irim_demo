@@ -24,6 +24,11 @@ import smach
 import smach_ros
 from smach_ros import ServiceState
 
+# Geometry Imports
+import PyKDL
+from geometry_msgs.msg import Pose
+import tf_conversions.posemath as pm
+
 # Aruco Imports
 from aruco_msgs.msg import Marker
 from aruco_msgs.msg import MarkerArray
@@ -36,6 +41,7 @@ from franka_control.msg import ErrorRecoveryAction, ErrorRecoveryActionGoal
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from panda_softhand_control.srv import set_object, set_objectRequest
 from panda_softhand_control.srv import hand_control, hand_controlRequest
+from panda_softhand_control.srv import complex_grasp, complex_graspRequest, complex_graspResponse
 
 DEBUG = False
 VERBOSE = True
@@ -44,9 +50,10 @@ max_id = 999            # If you change this, change it also in object camera pu
 
 # Topic and service names
 object_topic = "irim_demo/aruco_chosen_object"
+cam_pose_topic = "irim_demo/camera_pose"
 aruco_markers_topic = "aruco_marker_publisher/markers"
 set_obj_service_name = '/set_object_service'
-grasp_service_name = '/grasp_task_service'
+grasp_service_name = '/complex_grasp_task_service'
 place_service_name = '/place_task_service'
 home_service_name = '/home_task_service'
 hand_service_name = '/hand_control_service'
@@ -183,31 +190,79 @@ class ErrorService(smach.State):
 # State GraspService
 class GraspService(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_check', 'error_grasp'])
+        smach.State.__init__(self, outcomes=['go_to_check', 'error_grasp', 'go_to_prepare'],
+                                            input_keys=['grasp_in'])
 
         # Service Proxy to grasp service
-        self.grasp_client = rospy.ServiceProxy(grasp_service_name, SetBool)
+        self.complex_grasp_client = rospy.ServiceProxy(grasp_service_name, complex_grasp)
+
+        # Subscriber to object pose and id state and the saved message
+        self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+        self.last_marker_msg = None
+
+        # Subscriber to aruco markers and the saved message
+        self.obj_sub = rospy.Subscriber(aruco_markers_topic, MarkerArray, self.obj_callback_aruco, queue_size=1)
+        self.last_aruco_markers_msg = None
+
+        # Subscriber to camera pose topic (from object_camera_publisher.py)
+        self.cam_pose_sub = rospy.Subscriber(cam_pose_topic, Pose, self.callback_cam_pose, queue_size=1)
+        self.last_cam_pose_msg = None
 
     def execute(self, userdata):
         if VERBOSE:
             rospy.loginfo("I will perform the grasp now.")
 
+        # Check if the passed userdata id from PrepareGrasp is in the aruco array
+        marker_found = None
+        for ind in range(len(self.last_aruco_markers_msg.markers)):
+            if self.last_aruco_markers_msg.markers[ind].id == userdata.grasp_in.id:
+                marker_found = self.last_aruco_markers_msg.markers[ind]
+
+        if marker_found is None:
+            rospy.loginfo("In GraspService, the object with id given by PrepareGrasp was not found!")
+            return 'go_to_prepare'
+
+        print("I got the following marker id from PrepareGrasp: ")
+        print(userdata.grasp_in.id)
+        print("The id_found is: ")
+        print(marker_found.id)
+
+        # Converting the object pose in cam to world
+        world2cam = pm.fromMsg(self.last_cam_pose_msg)
+        cam2obj = pm.fromMsg(marker_found.pose.pose)
+
         # Creating a service request and sending
-        set_bool_req = SetBoolRequest(True)
-        set_bool_res = SetBoolResponse()
+        complex_grasp_req = complex_graspRequest()
+        complex_grasp_req.data = True
+        complex_grasp_req.object_pose = pm.toMsg(world2cam * cam2obj)
+        complex_grasp_req.object_pose.position.z = self.last_marker_msg.pose.pose.position.z
+        complex_grasp_req.object_pose.orientation = self.last_marker_msg.pose.pose.orientation
+        complex_grasp_res = complex_graspResponse()
+
+        print("The computed pose of grasp is")
+        print(complex_grasp_req.object_pose)
 
         try:
-            set_bool_res = self.grasp_client(set_bool_req)
+            complex_grasp_res = self.complex_grasp_client(complex_grasp_req)
         except rospy.ServiceException, e:
             print "In GraspService, Service call failed: %s"%e
 
         # Changing states according to res
-        if set_bool_res.success:
+        if complex_grasp_res.success:
             rospy.loginfo("In GraspService, no problems: going to check!")
             return 'go_to_check'
         else:
             rospy.loginfo("In GraspService, errors: going to error state!")
             return 'error_grasp'
+
+    def obj_callback(self, data):
+        self.last_marker_msg = data
+    
+    def obj_callback_aruco(self, data):
+        self.last_aruco_markers_msg = data
+
+    def callback_cam_pose(self, data):
+        self.last_cam_pose_msg = data
 
 
 # State CheckGrasp
@@ -369,7 +424,9 @@ def main():
             # The service state for grasping
             smach.StateMachine.add('GRASP_SERVICE', GraspService(),
                                    transitions={'go_to_check': 'CHECK_GRASP',
-                                                'error_grasp': 'ERROR_SERVICE'})
+                                                'error_grasp': 'ERROR_SERVICE',
+                                                'go_to_prepare': 'PREPARE_GRASP'},
+                                    remapping={'grasp_in':'passed_marker_msg'})
 
             # The service state for error recovery
             smach.StateMachine.add('ERROR_SERVICE', ErrorService(),

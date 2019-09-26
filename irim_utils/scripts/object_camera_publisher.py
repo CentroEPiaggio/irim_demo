@@ -53,6 +53,7 @@ input_topic = "aruco_marker_publisher/markers"
 output_ns = "irim_demo/"
 output_pose_topic = output_ns + "chosen_object"             # This will be used by task_sequencer
 output_aruco_topic = output_ns + "aruco_chosen_object"      # This will be used by state machine
+world_to_cam_topic = output_ns + "camera_pose"              # This will be used by state machine
 
 
 class ObjectPoseRemapper:
@@ -66,6 +67,7 @@ class ObjectPoseRemapper:
         # Publishers
         self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)     # For state machine
         self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)         # For task_sequencer
+        self.cam_pose_pub = rospy.Publisher(world_to_cam_topic, Pose, queue_size=10)         # For task_sequencer
 
         # tf Transform Broadcaster
         self.br = tf.TransformBroadcaster()
@@ -125,6 +127,7 @@ class ObjectPoseRemapper:
             # Now publish
             self.aruco_pub.publish(self.chosen_obj_aruco)
             self.pose_pub.publish(self.chosen_obj_aruco.pose.pose)
+            self.cam_pose_pub.publish(pm.toMsg(self.cam_rgb_frame_w))
 
     def compute_camera_frame(self, data):
         # Simple function which computes the camera frame from object pose in camera
