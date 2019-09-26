@@ -17,6 +17,7 @@
 # Main ROS Imports
 import roslib
 import rospy
+import actionlib
 
 # SMACH Imports
 import smach
@@ -26,6 +27,10 @@ from smach_ros import ServiceState
 # Aruco Imports
 from aruco_msgs.msg import Marker
 from aruco_msgs.msg import MarkerArray
+
+# Franka Imports
+from franka_msgs.msg import Errors
+from franka_control.msg import ErrorRecoveryAction, ErrorRecoveryActionGoal
 
 # Custom imports (services for panda_softhand_control task_sequencer)
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
@@ -45,6 +50,9 @@ grasp_service_name = '/grasp_task_service'
 place_service_name = '/place_task_service'
 home_service_name = '/home_task_service'
 hand_service_name = '/hand_control_service'
+rob_ns = "/panda_arm"
+err_rec_topic = rob_ns + "/franka_control/franka"
+franka_states_topic = rob_ns + "/franka_state_controller/franka_states/current_errors"      # as of now seems not to be needed
 
 # A dictionary associating ids with object names
 obj_dict = {
@@ -137,6 +145,36 @@ class PrepareGrasp(smach.State):
         self.last_marker_msg = data
 
 
+# State ErrorService
+class ErrorService(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['go_to_home', 'exit_sm'])
+
+        # Subscriber to franka states
+        # self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+
+        # Building the action client
+        self.recovery_client = actionlib.SimpleActionClient(err_rec_topic, ErrorRecoveryAction)
+
+    def execute(self, userdata):
+        if VERBOSE:
+            rospy.loginfo("I will perform the error recovery now.")
+
+        # Waiting for the error recovery server and sending goal
+        self.recovery_client.wait_for_server()
+        goal = ErrorRecoveryActionGoal()
+        self.recovery_client.send_goal(goal)
+        
+        # Checking the result and changing state
+        if self.recovery_client.wait_for_result(rospy.Duration.from_sec(5.0)):
+            rospy.loginfo("In ErrorService, no problems: recovered, going to home!")
+            return 'go_to_home'
+        else:
+            rospy.loginfo("In ErrorService, errors: couldn't recover, exiting!")
+            return 'exit_sm'
+            
+
+
 # State GraspService
 class GraspService(smach.State):
     def __init__(self):
@@ -163,7 +201,7 @@ class GraspService(smach.State):
             rospy.loginfo("In GraspService, no problems: going to check!")
             return 'go_to_check'
         else:
-            rospy.loginfo("In GraspService, errors: going to home!")
+            rospy.loginfo("In GraspService, errors: going to error state!")
             return 'error_grasp'
 
 
@@ -319,7 +357,12 @@ def main():
             # The service state for grasping
             smach.StateMachine.add('GRASP_SERVICE', GraspService(),
                                    transitions={'go_to_check': 'CHECK_GRASP',
-                                                'error_grasp': 'HOME_SERVICE'})
+                                                'error_grasp': 'ERROR_SERVICE'})
+
+            # The service state for error recovery
+            smach.StateMachine.add('ERROR_SERVICE', ErrorService(),
+                                   transitions={'go_to_home': 'HOME_SERVICE',
+                                                'exit_sm': 'exit_all'})
 
             # The state for checking grasp success
             smach.StateMachine.add('CHECK_GRASP', CheckGrasp(),

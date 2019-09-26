@@ -8,11 +8,17 @@ catkin_metapackage()
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-# find_package(catkin REQUIRED COMPONENTS
-#   roscpp
-#   rospy
-#   std_msgs
-# )
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  rospy
+  std_msgs
+  actionlib
+  actionlib_msgs
+  franka_msgs
+  aruco_msgs
+  smach
+  smach_ros
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
