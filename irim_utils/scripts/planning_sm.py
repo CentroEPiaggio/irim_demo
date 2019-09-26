@@ -51,7 +51,7 @@ place_service_name = '/place_task_service'
 home_service_name = '/home_task_service'
 hand_service_name = '/hand_control_service'
 rob_ns = "/panda_arm"
-err_rec_topic = rob_ns + "/franka_control/franka"
+err_rec_topic = rob_ns + "/franka_control/error_recovery"
 franka_states_topic = rob_ns + "/franka_state_controller/franka_states/current_errors"      # as of now seems not to be needed
 
 # A dictionary associating ids with object names
@@ -161,7 +161,10 @@ class ErrorService(smach.State):
             rospy.loginfo("I will perform the error recovery now.")
 
         # Waiting for the error recovery server and sending goal
-        self.recovery_client.wait_for_server()
+        if not self.recovery_client.wait_for_server(rospy.Duration.from_sec(5.0)):
+            rospy.logerr("In ErrorService, could not contact recovery server: exiting!")
+            return 'exit_sm'
+        
         goal = ErrorRecoveryActionGoal()
         self.recovery_client.send_goal(goal)
         
@@ -170,7 +173,7 @@ class ErrorService(smach.State):
             rospy.loginfo("In ErrorService, no problems: recovered, going to home!")
             return 'go_to_home'
         else:
-            rospy.loginfo("In ErrorService, errors: couldn't recover, exiting!")
+            rospy.logerr("In ErrorService, errors: couldn't recover, exiting!")
             return 'exit_sm'
             
 
