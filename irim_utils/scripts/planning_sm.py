@@ -82,6 +82,8 @@ class Wait(smach.State):
         if VERBOSE:
             rospy.loginfo("Executing state Wait")
 
+        rospy.sleep(2) # Sleeps for 2 sec
+
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: checking its sequential no. to know if it's new
         if self.last_marker_msg is None or self.last_marker_msg.id == max_id + 1:
@@ -403,8 +405,11 @@ def main():
     outcome = sm_top.execute()
 
     # Wait for ctrl-c to stop the application
-    rospy.spin()
-    sis.stop()
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        print "Shutting down IRIM Planning Module"
+        sis.stop()
 
 # THE MAIN
 
