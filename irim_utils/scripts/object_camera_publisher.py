@@ -203,7 +203,7 @@ class ObjectPoseRemapper:
 def main():
     # Initializes ros node and creates object
     rospy.init_node('object_pose_remapper', anonymous=True)
-    opr = ObjectPoseRemapper()
+    ObjectPoseRemapper()
 
     # Start to spin
     try:

@@ -89,7 +89,7 @@ class Wait(smach.State):
         if VERBOSE:
             rospy.loginfo("Executing state Wait")
 
-        rospy.sleep(2) # Sleeps for 2 sec
+        rospy.sleep(0.5) # Sleeps for 2 sec
 
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: checking its sequential no. to know if it's new
@@ -394,10 +394,10 @@ def main():
 
     # Waiting for the necessary services
     rospy.loginfo("Before starting the state machine, waiting for the services!")
-    # rospy.wait_for_service(set_obj_service_name)
-    # rospy.wait_for_service(grasp_service_name)
-    # rospy.wait_for_service(place_service_name)
-    # rospy.wait_for_service(home_service_name)
+    rospy.wait_for_service(set_obj_service_name)
+    rospy.wait_for_service(grasp_service_name)
+    rospy.wait_for_service(place_service_name)
+    rospy.wait_for_service(home_service_name)
 
     # Creating the top level state machine
     sm_top = smach.StateMachine(outcomes=['stop_everything'])
@@ -459,7 +459,7 @@ def main():
     sis.start()
 
     # Execute SMACH plan
-    outcome = sm_top.execute()
+    sm_top.execute()
 
     # Wait for ctrl-c to stop the application
     try:
