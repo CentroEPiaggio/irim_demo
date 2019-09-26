@@ -271,7 +271,7 @@ class CheckGrasp(smach.State):
 # State PlaceService
 class PlaceService(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_home'])
+        smach.State.__init__(self, outcomes=['go_to_home', 'error_place'])
 
         # Service Proxy to place service
         self.place_client = rospy.ServiceProxy(place_service_name, SetBool)
@@ -288,9 +288,16 @@ class PlaceService(smach.State):
         except rospy.ServiceException, e:
             print "In PlaceService, Service call failed: %s"%e
 
+        # If ok go to home, else go to error state
+        if set_bool_res.success:
+            rospy.loginfo("In PlaceService,everything ok: going to home!")
+            return 'go_to_home'
+        else:
+            rospy.logerr("In PlaceService error: going to error recovery!")
+            return 'error_place'
+
         # Anyways go to home
-        rospy.loginfo("In PlaceService, anyways going to home!")
-        return 'go_to_home'
+        
 
 
 # State HomeService
@@ -376,7 +383,8 @@ def main():
 
             # The state for placing the grasped object
             smach.StateMachine.add('PLACE_SERVICE', PlaceService(),
-                                   transitions={'go_to_home': 'HOME_SERVICE'})
+                                   transitions={'go_to_home': 'HOME_SERVICE',
+                                                'error_place': 'ERROR_SERVICE'})
 
             # The state for going to home
             smach.StateMachine.add('HOME_SERVICE', HomeService(),
