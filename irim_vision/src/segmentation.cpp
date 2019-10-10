@@ -1,10 +1,5 @@
 /*
-
 ROS node for point cloud cluster based segmentaion of cluttered objects on table
-
-Author: Sean Cassero
-7/15/15
-
 */
 
 
@@ -26,38 +21,34 @@ Author: Sean Cassero
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <obj_recognition/SegmentedClustersArray.h>
-// #include <obj_recognition/ClusterData.h>
 
 
 class segmentation {
 
 public:
 
-  explicit segmentation(ros::NodeHandle nh) : m_nh(nh)  {
+  explicit segmentation(ros::NodeHandle nh) : m_nh(nh) {
 
     // define the subscriber and publisher
-    m_sub = m_nh.subscribe ("/obj_recognition/point_cloud", 1, &segmentation::cloud_cb, this);
-    m_clusterPub = m_nh.advertise<obj_recognition::SegmentedClustersArray> ("obj_recognition/pcl_clusters",1);
+    m_sub = m_nh.subscribe ("/irim_vision/point_cloud_world", 10, &segmentation::cloud_cb, this);
+    m_clusterPub = m_nh.advertise<obj_recognition::SegmentedClustersArray> ("irim_vision/clusters",1);
 
   }
 
 private:
 
-ros::NodeHandle m_nh;
-ros::Publisher m_pub;
-ros::Subscriber m_sub;
-ros::Publisher m_clusterPub;
+  ros::NodeHandle m_nh;
+  ros::Publisher m_pub;
+  ros::Subscriber m_sub;
+  ros::Publisher m_clusterPub;
 
 void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
 
-}; // end class definition
+}; // End class definition
 
 
-// define callback function
-void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
-{
-
-
+// Callback function
+void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
 
   // Container for original & filtered data
   pcl::PCLPointCloud2* cloud = new pcl::PCLPointCloud2;
@@ -68,37 +59,36 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 
   // Convert to PCL data type
   pcl_conversions::toPCL(*cloud_msg, *cloud);
+  ROS_INFO_STREAM("PointCloud before filtering has: " << cloudPtr->data.size() << " data points.");
 
 
-  // Perform voxel grid downsampling filtering
+  // Perform voxel grid downsampling filtering using a leaf size of 1cm
   pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
   sor.setInputCloud (cloudPtr);
   sor.setLeafSize (0.01, 0.01, 0.01);
   sor.filter (*cloudFilteredPtr);
-
-
-  pcl::PointCloud<pcl::PointXYZRGB> *xyz_cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr xyzCloudPtr (xyz_cloud); // need a boost shared pointer for pcl function inputs
+  ROS_INFO_STREAM("PointCloud after filtering has: " << cloudFilteredPtr->data.size()  << " data points."); 
 
   // convert the pcl::PointCloud2 tpye to pcl::PointCloud<pcl::PointXYZRGB>
+  pcl::PointCloud<pcl::PointXYZRGB> *xyz_cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr xyzCloudPtr (xyz_cloud); // need a boost shared pointer for pcl function inputs
   pcl::fromPCLPointCloud2(*cloudFilteredPtr, *xyzCloudPtr);
 
+  // //perform passthrough filtering to remove table leg
 
-  //perform passthrough filtering to remove table leg
+  // // create a pcl object to hold the passthrough filtered results
+  // pcl::PointCloud<pcl::PointXYZRGB> *xyz_cloud_filtered = new pcl::PointCloud<pcl::PointXYZRGB>;
+  // pcl::PointCloud<pcl::PointXYZRGB>::Ptr xyzCloudPtr (xyz_cloud_filtered);
 
-  // create a pcl object to hold the passthrough filtered results
-  pcl::PointCloud<pcl::PointXYZRGB> *xyz_cloud_filtered = new pcl::PointCloud<pcl::PointXYZRGB>;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr xyzCloudPtrFiltered (xyz_cloud_filtered);
+  // // Create the filtering object
+  // pcl::PassThrough<pcl::PointXYZRGB> pass;
+  // pass.setInputCloud (xyzCloudPtr);
+  // pass.setFilterFieldName ("z");
+  // pass.setFilterLimits (.5, 1.1);
+  // //pass.setFilterLimitsNegative (true);
+  // pass.filter (*xyzCloudPtr);
 
-  // Create the filtering object
-  pcl::PassThrough<pcl::PointXYZRGB> pass;
-  pass.setInputCloud (xyzCloudPtr);
-  pass.setFilterFieldName ("z");
-  pass.setFilterLimits (.5, 1.1);
-  //pass.setFilterLimitsNegative (true);
-  pass.filter (*xyzCloudPtrFiltered);
-
-
+  ROS_INFO_STREAM("PointCloud after filtering has: " << xyzCloudPtr->points.size()  << " data points."); 
 
   // create a pcl object to hold the ransac filtered results
   pcl::PointCloud<pcl::PointXYZRGB> *xyz_cloud_ransac_filtered = new pcl::PointCloud<pcl::PointXYZRGB>;
@@ -116,21 +106,20 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
   seg1.setModelType (pcl::SACMODEL_PLANE);
   seg1.setMethodType (pcl::SAC_RANSAC);
   seg1.setDistanceThreshold (0.04);
-
-  seg1.setInputCloud (xyzCloudPtrFiltered);
+  seg1.setInputCloud (xyzCloudPtr);
   seg1.segment (*inliers, *coefficients);
 
 
   // Create the filtering object
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
-  //extract.setInputCloud (xyzCloudPtrFiltered);
-  extract.setInputCloud (xyzCloudPtrFiltered);
+  //extract.setInputCloud (xyzCloudPtr);
+  extract.setInputCloud (xyzCloudPtr);
   extract.setIndices (inliers);
   extract.setNegative (true);
   extract.filter (*xyzCloudPtrRansacFiltered);
 
-
+  ROS_INFO_STREAM("PointCloud after RANSAC filtering has: " << xyzCloudPtrRansacFiltered->points.size()  << " data points.");
 
   // perform euclidean cluster segmentation to seporate individual objects
 
