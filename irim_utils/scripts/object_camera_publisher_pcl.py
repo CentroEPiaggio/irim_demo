@@ -31,7 +31,8 @@ import tf_conversions.posemath as pm
 
 from geometry_msgs.msg import Pose
 from aruco_msgs.msg import MarkerArray
-from aruco_msgs.msg import Marker
+from irim_vision.msg import IdentifiedClustersArray
+from irim_vision.msg import IdentifiedCluster
 from std_msgs.msg import UInt32MultiArray
 
 VERBOSE = False
@@ -50,9 +51,10 @@ object_frame_name = "object"
 camera_frame_name = "camera_link"
 
 input_topic = "aruco_marker_publisher/markers"
+input_topic_pcl = "irim_vision/identified_clusters"
 output_ns = "irim_demo/"
 output_pose_topic = output_ns + "chosen_object"             # This will be used by task_sequencer
-output_aruco_topic = output_ns + "aruco_chosen_object"      # This will be used by state machine
+output_cluster_topic = output_ns + "cluster_chosen_object"      # This will be used by state machine
 world_to_cam_topic = output_ns + "camera_pose"              # This will be used by state machine
 
 
@@ -63,11 +65,12 @@ class ObjectPoseRemapper:
 
         # Subscriber
         self.sub = rospy.Subscriber(input_topic, MarkerArray, self.callback, queue_size=1)
+        self.sub_clusters = rospy.Subscriber(input_topic_pcl, IdentifiedClustersArray, self.callback_clusters, queue_size=1)
 
         # Publishers
-        self.aruco_pub = rospy.Publisher(output_aruco_topic, Marker, queue_size=10)     # For state machine
-        self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)         # For task_sequencer
-        self.cam_pose_pub = rospy.Publisher(world_to_cam_topic, Pose, queue_size=10)         # For task_sequencer
+        self.cluster_pub = rospy.Publisher(output_cluster_topic, IdentifiedCluster, queue_size=10)      # For state machine
+        self.pose_pub = rospy.Publisher(output_pose_topic, Pose, queue_size=10)                         # For task_sequencer
+        self.cam_pose_pub = rospy.Publisher(world_to_cam_topic, Pose, queue_size=10)                    # For task_sequencer
 
         # tf Transform Broadcaster
         self.br = tf.TransformBroadcaster()
@@ -78,14 +81,14 @@ class ObjectPoseRemapper:
         self.cam_link_frame_w = None
         self.cam_rgb_frame_w = None
         self.cam_link_frame_rgb = None
-        self.obj_maker_frame_c = None
         self.obj_frame_w = None
-        self.chosen_obj_aruco = None
+        self.chosen_obj_cluster = None
 
         if VERBOSE:
             print "Subscribed to " + input_topic
+            print "Subscribed to " + input_topic_pcl
             print "Publishing to " + output_pose_topic
-            print "Publishing to " + output_aruco_topic
+            print "Publishing to " + output_cluster_topic
             print "Broadcasting camera and object tfs"
 
         # Computing the fixed world to robot_marker transform
@@ -100,7 +103,7 @@ class ObjectPoseRemapper:
         self.cam_link_frame_rgb = PyKDL.Frame(cam_link_rot_rgb, cam_link_tra_rgb)
 
     def callback(self, data):
-        # Callback function of subscribed topic. Here the read message of pose is published to output topic
+        # Callback function of aruco subscribed topic. Here the cam transform is published
 
         if VERBOSE:
             rospy.loginfo(rospy.get_caller_id() + "I heard a new MarkerArray")
@@ -113,21 +116,22 @@ class ObjectPoseRemapper:
         if DEBUG:
             self.broadcast_tf(self.rob_maker_frame_c, 'marker_debug', 'camera_rgb_optical_frame')
 
+        # Now publish
+        self.cam_pose_pub.publish(pm.toMsg(self.cam_rgb_frame_w))
+
+    def callback_clusters(self, data):
+        # Callback function of clusters subscribed topic. Here the object transform is published
+
         # Now if any, choose the object an publish the relevant stuff
-        if len(data.markers) > 1:  # hp: if there's only one marker, it's the robot marker
+        if len(data.ident_clusters) > 0:
             self.choose_object(data)
             self.broadcast_tf(self.obj_frame_w, object_frame_name, world_frame_name)
 
-        # Publishing the object aruco Marker message to the output_aruco_topic
-        if self.chosen_obj_aruco is not None:
-            # Check if there is only one marker; if so, change the id of the object to be published
-            if len(data.markers) <= 1:
-                self.chosen_obj_aruco.id = max_id + 1
-            
+        # Publishing the object Identified Cluster message to the output_cluster_topic
+        if self.chosen_obj_cluster is not None:            
             # Now publish
-            self.aruco_pub.publish(self.chosen_obj_aruco)
-            self.pose_pub.publish(self.chosen_obj_aruco.pose.pose)
-            self.cam_pose_pub.publish(pm.toMsg(self.cam_rgb_frame_w))
+            self.cluster_pub.publish(self.chosen_obj_cluster)
+            self.pose_pub.publish(self.chosen_obj_cluster.pose)
 
     def compute_camera_frame(self, data):
         # Simple function which computes the camera frame from object pose in camera
@@ -165,34 +169,26 @@ class ObjectPoseRemapper:
     def choose_object(self, data):
         # Simple function which chooses the object if any
 
-        # Choose the object with the lowest marker id
-        obj_marker_pose_c = None
+        # Choose the object which is nearest
+        nearest_object = None
         lowest_ind = max_id
-        for ind in range(len(data.markers)):
-            if DEBUG:
-                print("The lowest id is " + str(lowest_ind) + " and the marker id is " + str(data.markers[ind].id))
-            if data.markers[ind].id != robot_id and data.markers[ind].id <= lowest_ind:
-                lowest_ind = data.markers[ind].id
-                obj_marker_pose_c = data.markers[ind].pose.pose
-                self.chosen_obj_aruco = data.markers[ind]
+        lowest_dist = 10        # never gonna be higher than 10m
+        for ind in range(len(data.ident_clusters)):
+            if data.ident_clusters[ind].pose.position.x < lowest_dist:
+                lowest_dist = data.ident_clusters[ind].pose.position.x
+                lowest_ind = ind
+        nearest_object = data.ident_clusters[lowest_ind]
 
         if DEBUG:
-            print("The chosen marker id is " + str(lowest_ind))
+            print("The chosen objects id is " + str(lowest_ind))
 
-        # Transform it to PyKDL Frame
-        obj_marker_tra_c = PyKDL.Vector(obj_marker_pose_c.position.x, obj_marker_pose_c.position.y, obj_marker_pose_c.position.z) 
-        # obj_marker_rot_c = PyKDL.Rotation.Quaternion(obj_marker_pose_c.orientation.x, obj_marker_pose_c.orientation.y, 
-                                                        # obj_marker_pose_c.orientation.z, obj_marker_pose_c.orientation.w)
-        obj_marker_rot_c = self.cam_rgb_frame_w.M.Inverse()     # I want the obj to have the same rotation of world
-        self.obj_maker_frame_c = PyKDL.Frame(obj_marker_rot_c, obj_marker_tra_c)
+        # IF NEEDED FORCE THE Z HERE
 
         # Compute the object frame in world
-        self.obj_frame_w = self.cam_rgb_frame_w * self.obj_maker_frame_c
-        # forcing the z of the obj to be 0.0 (flickering problem) (it is 0.02 because of table -0.03 wrt world)
-        self.obj_frame_w.p = PyKDL.Vector(self.obj_frame_w.p.x(), self.obj_frame_w.p.y(), 0.02) 
+        self.obj_frame_w = pm.fromMsg(nearest_object.pose)
 
-        # Correct the aruco msg to be in world frame
-        self.chosen_obj_aruco.pose.pose = pm.toMsg(self.obj_frame_w)
+        # Correct the cluster msg to be in world frame
+        self.chosen_obj_cluster = nearest_object
 
     def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)
