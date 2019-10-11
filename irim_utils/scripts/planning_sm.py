@@ -29,6 +29,9 @@ import PyKDL
 from geometry_msgs.msg import Pose
 import tf_conversions.posemath as pm
 
+# Trajectory Imports
+from trajectory_msgs.msg import JointTrajectory
+
 # Aruco Imports
 from aruco_msgs.msg import Marker
 from aruco_msgs.msg import MarkerArray
@@ -40,6 +43,7 @@ from franka_control.msg import ErrorRecoveryAction, ErrorRecoveryActionGoal
 # Custom imports (services for panda_softhand_control task_sequencer)
 from std_srvs.srv import SetBool, SetBoolRequest, SetBoolResponse
 from panda_softhand_control.srv import set_object, set_objectRequest
+from panda_softhand_control.srv import hand_plan, hand_planRequest
 from panda_softhand_control.srv import hand_control, hand_controlRequest
 from panda_softhand_control.srv import complex_grasp, complex_graspRequest, complex_graspResponse
 
@@ -56,7 +60,8 @@ set_obj_service_name = '/set_object_service'
 grasp_service_name = '/complex_grasp_task_service'
 place_service_name = '/place_task_service'
 home_service_name = '/home_task_service'
-hand_service_name = '/hand_control_service'
+hand_plan_service_name = '/hand_plan_service'
+hand_control_service_name = '/hand_control_service'
 rob_ns = "/panda_arm"
 err_rec_topic = rob_ns + "/franka_control/error_recovery"
 franka_states_topic = rob_ns + "/franka_state_controller/franka_states/current_errors"      # as of now seems not to be needed
@@ -280,7 +285,8 @@ class CheckGrasp(smach.State):
         self.last_aruco_markers_msg = None
 
         # Service Proxy to hand opening service
-        self.hand_client = rospy.ServiceProxy(hand_service_name, hand_control)
+        self.hand_plan_client = rospy.ServiceProxy(hand_plan_service_name, hand_plan)
+        self.hand_control_client = rospy.ServiceProxy(hand_control_service_name, hand_control)
 
     def execute(self, userdata):
         if VERBOSE:
@@ -307,10 +313,18 @@ class CheckGrasp(smach.State):
             return 'go_to_place'
         else:
             rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful! Opening hand and retying...")
+            hand_plan_req = hand_planRequest()
+            hand_plan_req.goal_syn = 0.0
+            hand_plan_req.goal_duration = 2.0
+            hand_plan_res = self.hand_plan_client(hand_plan_req)
+
+            if not hand_plan_res.answer:
+                rospy.logerr("In CheckGrasp I could not plan the reopening of hand for regrasing! Going to home...")
+                return 'go_to_home'
+
             hand_control_req = hand_controlRequest()
-            hand_control_req.goal_syn = 0.0
-            hand_control_req.goal_duration = 2.0
-            hand_control_res = self.hand_client(hand_control_req)
+            hand_control_req.computed_trajectory = hand_plan_res.computed_trajectory
+            hand_control_res = self.hand_control_client(hand_control_req)
 
             if not hand_control_res:
                 rospy.logerr("In CheckGrasp I could not reopen the hand for regrasing! Going to home...")
