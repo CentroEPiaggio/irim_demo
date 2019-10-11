@@ -1,13 +1,7 @@
-/*******************************************************************************
- * Copyright (C) 2017 Electric Movement Inc.
- *
- * This file is part of Robotic Arm: Pick and Place project for Udacity
- * Robotics nano-degree program
- *
- * All Rights Reserved.
- ******************************************************************************/
-
-// Author: Harsh Pandya
+/*
+* Brief:
+* This node transforms point cloud from /camera_link frame to /world frame
+*/
 
 #include <ros/ros.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -17,11 +11,6 @@
 #include <pcl/point_types.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_listener.h>
-
-/*
-* Brief:
-* This node transforms point cloud from /camera_link frame to /world frame
-*/
 
 class CloudTransformer
 {
