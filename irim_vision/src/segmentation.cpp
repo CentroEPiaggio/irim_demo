@@ -31,6 +31,7 @@ public:
     // define the subscriber and publisher
     m_sub = m_nh.subscribe ("/irim_vision/point_cloud_world", 10, &segmentation::cloud_cb, this);
     m_clusterPub = m_nh.advertise<irim_vision::SegmentedClustersArray> ("irim_vision/clusters",1);
+    m_pub = m_nh.advertise<sensor_msgs::PointCloud2> ("irim_vision/first_cluster",1);
 
   }
 
@@ -48,6 +49,9 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
 
 // Callback function
 void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
+
+  // Saving the input message header
+  std_msgs::Header input_header = cloud_msg->header;
 
   // Container for original & filtered data
   pcl::PCLPointCloud2* cloud = new pcl::PCLPointCloud2;
@@ -131,8 +135,8 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
   pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
   // specify euclidean cluster parameters
   ec.setClusterTolerance (0.02); // 2cm
-  ec.setMinClusterSize (100);
-  ec.setMaxClusterSize (25000);
+  ec.setMinClusterSize (40);
+  ec.setMaxClusterSize (500);
   ec.setSearchMethod (tree);
   ec.setInputCloud (xyzCloudPtrRansacFiltered);
   // exctract the indices pertaining to each cluster and store in a vector of pcl::PointIndices
@@ -166,6 +170,10 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
     // Convert to ROS data type
     pcl_conversions::fromPCL(outputPCL, output);
 
+    // Modifying the input header and assigning to output
+    input_header.stamp = ros::Time::now();
+    output.header = input_header;
+
     // add the cluster to the array message
     CloudClusters.clusters.push_back(output);
 
@@ -173,6 +181,11 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
 
   // publish the clusters
   m_clusterPub.publish(CloudClusters);
+  if (CloudClusters.clusters.size() == 1) {
+    m_pub.publish(CloudClusters.clusters[0]);
+  } else if (CloudClusters.clusters.size() == 2){
+    m_pub.publish(CloudClusters.clusters[1]);
+  }
 
 }
 
