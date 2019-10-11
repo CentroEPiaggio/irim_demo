@@ -1,0 +1,49 @@
+<launch>
+
+    <!-- GENERAL ARGS -->
+    <arg name="launch_rviz"      default="false"/>
+
+    <!-- OPENNI2 ARGS -->
+    <arg name="launch_openni2"      default="true"/>
+    <arg name="openni2_frame"      default="camera_rgb_optical_frame"/>
+
+    <!-- ARUCO ARGS -->
+    <arg name="markerSize"      default="0.045"/>    <!-- in m -->
+    <arg name="side"            default="left"/>
+    <arg name="ref_frame"       default="camera_rgb_optical_frame"/>  <!-- leave empty and the pose will be published wrt param parent_name -->
+    <arg name="marker_frame"    default="aruco_marker_frame"/>
+
+    <!-- ADDITIONAL ARGS -->
+    <arg name="camera_info_topic"       default="/camera/rgb/camera_info"/>
+    <arg name="image_topic"             default="/camera/rgb/image_raw"/>
+    <arg name="camera_frame"            default="camera_rgb_optical_frame"/>
+
+    <!-- OPENNI2 -->
+    <group if="$(arg launch_openni2)">
+        <include file="$(find openni2_launch)/launch/openni2.launch">
+            <arg name="rgb_frame_id" value="$(arg openni2_frame)"/>
+            <arg name="depth_frame_id" value="$(arg openni2_frame)"/>
+        </include>
+    </group>
+
+    <!-- ARUCO MARKER PUBLISHER -->
+    <node pkg="aruco_ros" type="marker_publisher" name="aruco_marker_publisher">
+        <remap from="/camera_info"          to="$(arg camera_info_topic)" />
+        <remap from="/image"                to="$(arg image_topic)" />
+        <param name="image_is_rectified"    value="True"/>
+        <param name="marker_size"           value="$(arg markerSize)"/>
+        <param name="reference_frame"       value="$(arg ref_frame)"/>   <!-- frame in which the marker pose will be refered -->
+        <param name="camera_frame"          value="$(arg camera_frame)"/>
+        <param name="marker_frame"          value="$(arg marker_frame)" />
+    </node>
+
+    <!-- CAMERA AND OBJECT FRAMES PUBLISHER -->
+    <node pkg="irim_utils" name="object_camera_publisher_node" type="object_camera_publisher_aruco.py" output="screen">
+    </node>
+
+    <!-- RViz for visualization -->
+    <group if="$(arg launch_rviz)">
+        <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find irim_demo)/config/trial_markers.rviz"/>
+    </group>
+
+</launch>

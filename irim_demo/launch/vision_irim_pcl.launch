@@ -38,7 +38,7 @@
     </node>
 
     <!-- CAMERA AND OBJECT FRAMES PUBLISHER -->
-    <node pkg="irim_utils" name="object_camera_publisher_node" type="object_camera_publisher.py" output="screen">
+    <node pkg="irim_utils" name="object_camera_publisher_node" type="object_camera_publisher_pcl.py" output="screen">
     </node>
 
     <!-- RViz for visualization -->
