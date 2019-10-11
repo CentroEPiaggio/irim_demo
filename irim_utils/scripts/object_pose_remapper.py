@@ -7,7 +7,10 @@
 # name for our 'listener' node so that multiple listeners can
 # run simultaneously.
 
-''' This node is for republishing an objects pose to an output_topic '''
+''' This node is for republishing an objects pose to an output_topic
+
+    Autors: George Jose Pollayil, Mathew Jose Pollayil
+'''
 
 # Python libs
 import sys, time

@@ -4,7 +4,11 @@
     - the marker with id = 0 is considered robot marker
     - the other markers are objects to be grasped
     - the one with smallest id will be chosen
-    - the pose will be changed for easing the grasping """
+    - the pose will be changed for easing the grasping 
+    
+    Autors: George Jose Pollayil, Mathew Jose Pollayil
+    
+"""
 
 # Python libs
 import sys, time
