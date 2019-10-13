@@ -38,7 +38,8 @@ from std_msgs.msg import UInt32MultiArray
 VERBOSE = False
 DEBUG = False
 
-max_id = 999                # If you change this, change it also in object camera publisher
+
+max_id = 999                # If you change this, change it also in planning sm
 robot_id = 0
 # rob_marker = [0.17, 0, -0.025, -1.5707, -3.1415, 0]
 # rob_marker = [0, 0, 0, 0, 0, 0]
@@ -85,11 +86,11 @@ class ObjectPoseRemapper:
         self.chosen_obj_cluster = None
 
         if VERBOSE:
-            print "Subscribed to " + input_topic
-            print "Subscribed to " + input_topic_pcl
-            print "Publishing to " + output_pose_topic
-            print "Publishing to " + output_cluster_topic
-            print "Broadcasting camera and object tfs"
+            print("Subscribed to " + input_topic)
+            print("Subscribed to " + input_topic_pcl)
+            print("Publishing to " + output_pose_topic)
+            print("Publishing to " + output_cluster_topic)
+            print("Broadcasting camera and object tfs")
 
         # Computing the fixed world to robot_marker transform
         rob_marker_tra_w = PyKDL.Vector(rob_marker[0], rob_marker[1], rob_marker[2])
@@ -161,9 +162,9 @@ class ObjectPoseRemapper:
             print("rob_maker_frame_w is")
             print(self.rob_maker_frame_w)
 
-            print "cam_rgb_frame_w is"
+            print("cam_rgb_frame_w is")
             print(self.cam_rgb_frame_w)
-            print "cam_link_frame_w is"
+            print("cam_link_frame_w is")
             print(self.cam_link_frame_w)
 
     def choose_object(self, data):
@@ -205,7 +206,7 @@ def main():
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
-        print "Shutting down IRIM Image feature detection module"
+        print("Shutting down IRIM Image feature detection module")
 
 
 if __name__ == '__main__':

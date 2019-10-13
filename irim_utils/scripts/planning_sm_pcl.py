@@ -36,6 +36,10 @@ from trajectory_msgs.msg import JointTrajectory
 from aruco_msgs.msg import Marker
 from aruco_msgs.msg import MarkerArray
 
+# Clusters Import
+from irim_vision.msg import IdentifiedClustersArray
+from irim_vision.msg import IdentifiedCluster
+
 # Franka Imports
 from franka_msgs.msg import Errors
 from franka_control.msg import ErrorRecoveryAction, ErrorRecoveryActionGoal
@@ -53,7 +57,7 @@ VERBOSE = True
 max_id = 999            # If you change this, change it also in object camera publisher
 
 # Topic and service names
-object_topic = "irim_demo/aruco_chosen_object"
+object_topic = "irim_demo/cluster_chosen_object"
 cam_pose_topic = "irim_demo/camera_pose"
 aruco_markers_topic = "aruco_marker_publisher/markers"
 set_obj_service_name = '/set_object_service'
@@ -87,7 +91,7 @@ class Wait(smach.State):
         smach.State.__init__(self, outcomes=['no_obj_in_view', 'obj_in_view'])
 
         # Subscriber to object pose and id state and the saved message
-        self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+        self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
 
     def execute(self, userdata):
@@ -97,8 +101,8 @@ class Wait(smach.State):
         rospy.sleep(0.5) # Sleeps for 2 sec
 
         # According to the presence or absence of objects, change state
-        # The callback simply saves the message: checking its sequential no. to know if it's new
-        if self.last_marker_msg is None or self.last_marker_msg.id == max_id + 1:
+        # The callback simply saves the message: if it's empty don't do anything
+        if self.last_marker_msg is None:
             return 'no_obj_in_view'
         else:
             return 'obj_in_view'
@@ -116,7 +120,7 @@ class PrepareGrasp(smach.State):
                              output_keys=['prepare_grasp_out'])
 
         # Subscriber to object pose and id state and the saved message
-        self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+        self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
 
         # Service Proxy to set object service
@@ -164,7 +168,7 @@ class ErrorService(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['go_to_home', 'exit_sm'])
 
-        # Subscriber to franka states
+        # Subscriber to franka states (NOT USED NOW)
         # self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
 
         # Building the action client
@@ -191,7 +195,6 @@ class ErrorService(smach.State):
             return 'exit_sm'
             
 
-
 # State GraspService
 class GraspService(smach.State):
     def __init__(self):
@@ -202,7 +205,7 @@ class GraspService(smach.State):
         self.complex_grasp_client = rospy.ServiceProxy(grasp_service_name, complex_grasp)
 
         # Subscriber to object pose and id state and the saved message
-        self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+        self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
 
         # Subscriber to aruco markers and the saved message
@@ -277,7 +280,7 @@ class CheckGrasp(smach.State):
                              input_keys=['check_grasp_in'])
 
         # Subscriber to object pose and the saved message
-        self.obj_sub = rospy.Subscriber(object_topic, Marker, self.obj_callback, queue_size=1)
+        self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
         self.last_marker_msg = None
 
         # Subscriber to aruco markers and the saved message
