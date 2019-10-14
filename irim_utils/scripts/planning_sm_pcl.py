@@ -380,7 +380,7 @@ class PlaceService(smach.State):
         except rospy.ServiceException, e:
             print "In PlaceService, Set Service call failed: %s"%e
 
-        if not set_obj_res.success:
+        if not set_obj_res.result:
             rospy.loginfo("In PlaceService, errors in set place: going to error recovery!")
             return 'error_place'
 
