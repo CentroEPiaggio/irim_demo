@@ -19,6 +19,9 @@ import roslib
 import rospy
 import actionlib
 
+# General Imports
+import math
+
 # SMACH Imports
 import smach
 import smach_ros
@@ -55,12 +58,14 @@ DEBUG = False
 VERBOSE = True
 
 max_id = 999            # If you change this, change it also in object camera publisher
+epsilon = 0.04          # The distance in cm for checking if the object has been grasped
 
 # Topic and service names
 object_topic = "irim_demo/cluster_chosen_object"
 cam_pose_topic = "irim_demo/camera_pose"
-aruco_markers_topic = "aruco_marker_publisher/markers"
+identified_clusters_topic = "irim_vision/identified_clusters"
 set_obj_service_name = '/set_object_service'
+set_place_service_name = '/set_place_service'
 grasp_service_name = '/complex_grasp_task_service'
 place_service_name = '/place_task_service'
 home_service_name = '/home_task_service'
@@ -92,7 +97,7 @@ class Wait(smach.State):
 
         # Subscriber to object pose and id state and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
-        self.last_marker_msg = None
+        self.last_object_msg = None
 
     def execute(self, userdata):
         if VERBOSE:
@@ -102,13 +107,13 @@ class Wait(smach.State):
 
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: if it's empty don't do anything
-        if self.last_marker_msg is None:
+        if self.last_object_msg is None:
             return 'no_obj_in_view'
         else:
             return 'obj_in_view'
 
     def obj_callback(self, data):
-        self.last_marker_msg = data
+        self.last_object_msg = data
 
 
 # DEFINITION OF STATES OF SUB STATE MACHINE PLAN AND EXECUTE (also the service states are defined as generic states)
@@ -121,7 +126,7 @@ class PrepareGrasp(smach.State):
 
         # Subscriber to object pose and id state and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
-        self.last_marker_msg = None
+        self.last_object_msg = None
 
         # Service Proxy to set object service
         self.set_obj_client = rospy.ServiceProxy(set_obj_service_name, set_object)
@@ -131,28 +136,28 @@ class PrepareGrasp(smach.State):
             rospy.loginfo("I'm preparing the grasp now.")
 
         # If no objects in scene return to wait
-        if self.last_marker_msg is None:
+        if self.last_object_msg is None:
             rospy.loginfo("In PrepareGraps no objects in the scene. Going back to wait")
             return 'go_to_wait'
 
-        # Call set object according to id
+        # Call set object according to obj_id
         set_obj_req = set_objectRequest()
 
-        # Checking if the tag id has an object associated in the dictionary
-        if self.last_marker_msg.id <= len(obj_dict):
-            set_obj_req.object_name = obj_dict.get(self.last_marker_msg.id)
+        # Checking if the tag obj_id has an object associated in the dictionary
+        if self.last_object_msg.obj_id <= len(obj_dict):
+            set_obj_req.object_name = obj_dict.get(self.last_object_msg.obj_id)
         else:
-            rospy.logerr("The id of the object is not in the objects dictionary. Assigning the default...")
+            rospy.logerr("The obj_id of the object is not in the objects dictionary. Assigning the default...")
             set_obj_req.object_name = obj_dict.get(0)
         
         # Calling the service
         set_obj_res = self.set_obj_client(set_obj_req)
 
         # The userdata passed to CheckGrasp
-        userdata.prepare_grasp_out = self.last_marker_msg
+        userdata.prepare_grasp_out = self.last_object_msg
 
         # Change state according to result
-        if set_obj_res.result and self.last_marker_msg is not None and self.last_marker_msg.id != max_id + 1:
+        if set_obj_res.result and self.last_object_msg is not None:
             rospy.loginfo("In PrepareGrasp, no problems: going to grasp!")
             return 'go_to_grasp'
         else:
@@ -160,7 +165,7 @@ class PrepareGrasp(smach.State):
             return 'go_to_wait'
 
     def obj_callback(self, data):
-        self.last_marker_msg = data
+        self.last_object_msg = data
 
 
 # State ErrorService
@@ -206,49 +211,41 @@ class GraspService(smach.State):
 
         # Subscriber to object pose and id state and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
-        self.last_marker_msg = None
+        self.last_object_msg = None
 
         # Subscriber to aruco markers and the saved message
-        self.obj_sub = rospy.Subscriber(aruco_markers_topic, MarkerArray, self.obj_callback_aruco, queue_size=1)
-        self.last_aruco_markers_msg = None
-
-        # Subscriber to camera pose topic (from object_camera_publisher.py)
-        self.cam_pose_sub = rospy.Subscriber(cam_pose_topic, Pose, self.callback_cam_pose, queue_size=1)
-        self.last_cam_pose_msg = None
+        self.obj_sub = rospy.Subscriber(identified_clusters_topic, IdentifiedClustersArray, self.callback_clusters, queue_size=1)
+        self.last_all_clusters_msg = None
 
     def execute(self, userdata):
         if VERBOSE:
             rospy.loginfo("I will perform the grasp now.")
 
-        # Check if the passed userdata id from PrepareGrasp is in the aruco array
-        marker_found = None
-        for ind in range(len(self.last_aruco_markers_msg.markers)):
-            if self.last_aruco_markers_msg.markers[ind].id == userdata.grasp_in.id:
-                marker_found = self.last_aruco_markers_msg.markers[ind]
+        # Check if the passed userdata obj_id from PrepareGrasp is in the clusters array
+        cluster_found = None
+        for ind in range(len(self.last_all_clusters_msg.ident_clusters)):
+            if self.last_all_clusters_msg.ident_clusters[ind].obj_id == userdata.grasp_in.obj_id:
+                cluster_found = self.last_all_clusters_msg.ident_clusters[ind]
 
-        if marker_found is None:
-            rospy.loginfo("In GraspService, the object with id given by PrepareGrasp was not found!")
+        if cluster_found is None:
+            rospy.loginfo("In GraspService, the object with obj_id given by PrepareGrasp was not found!")
             return 'go_to_prepare'
 
-        print("I got the following marker id from PrepareGrasp: ")
-        print(userdata.grasp_in.id)
-        print("The id_found is: ")
-        print(marker_found.id)
-
-        # Converting the object pose in cam to world
-        world2cam = pm.fromMsg(self.last_cam_pose_msg)
-        cam2obj = pm.fromMsg(marker_found.pose.pose)
+        if VERBOSE:
+            print("I got the following marker obj_id from PrepareGrasp: ")
+            print(userdata.grasp_in.obj_id)
+            print("The obj_id_found is: ")
+            print(cluster_found.obj_id)
 
         # Creating a service request and sending
         complex_grasp_req = complex_graspRequest()
         complex_grasp_req.data = True
-        complex_grasp_req.object_pose = pm.toMsg(world2cam * cam2obj)
-        complex_grasp_req.object_pose.position.z = self.last_marker_msg.pose.pose.position.z
-        complex_grasp_req.object_pose.orientation = self.last_marker_msg.pose.pose.orientation
+        complex_grasp_req.object_pose = cluster_found.pose
         complex_grasp_res = complex_graspResponse()
 
-        print("The computed pose of grasp is")
-        print(complex_grasp_req.object_pose)
+        if VERBOSE:
+            print("The computed pose of grasp is")
+            print(complex_grasp_req.object_pose)
 
         try:
             complex_grasp_res = self.complex_grasp_client(complex_grasp_req)
@@ -264,13 +261,10 @@ class GraspService(smach.State):
             return 'error_grasp'
 
     def obj_callback(self, data):
-        self.last_marker_msg = data
+        self.last_object_msg = data
     
-    def obj_callback_aruco(self, data):
-        self.last_aruco_markers_msg = data
-
-    def callback_cam_pose(self, data):
-        self.last_cam_pose_msg = data
+    def callback_clusters(self, data):
+        self.last_all_clusters_msg = data
 
 
 # State CheckGrasp
@@ -281,11 +275,11 @@ class CheckGrasp(smach.State):
 
         # Subscriber to object pose and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
-        self.last_marker_msg = None
+        self.last_object_msg = None
 
         # Subscriber to aruco markers and the saved message
-        self.obj_sub = rospy.Subscriber(aruco_markers_topic, MarkerArray, self.obj_callback_aruco, queue_size=1)
-        self.last_aruco_markers_msg = None
+        self.obj_sub = rospy.Subscriber(identified_clusters_topic, IdentifiedClustersArray, self.callback_clusters, queue_size=1)
+        self.last_all_clusters_msg = None
 
         # Service Proxy to hand opening service
         self.hand_plan_client = rospy.ServiceProxy(hand_plan_service_name, hand_plan)
@@ -295,23 +289,27 @@ class CheckGrasp(smach.State):
         if VERBOSE:
             rospy.loginfo("I'm checking if I really grasped.")
 
-        # Check if the passed userdata id from PrepareGrasp is in the aruco array
-        id_found = False
-        for ind in range(len(self.last_aruco_markers_msg.markers)):
-            if self.last_aruco_markers_msg.markers[ind].id == userdata.check_grasp_in.id:
-                id_found = True
+        # Check if the passed userdata obj_id and rough position from PrepareGrasp is in the clusters array
+        same_obj_found = False
+        for ind in range(len(self.last_all_clusters_msg.ident_clusters)):
+            if self.last_all_clusters_msg.ident_clusters[ind].obj_id == userdata.check_grasp_in.obj_id:
+                # Check for position with a tolerance
+                tmp1 = self.last_all_clusters_msg.ident_clusters[ind].pose.position
+                tmp2 = userdata.check_grasp_in.pose.position
+                if (math.sqrt((tmp1.x - tmp2.x)**2 + (tmp1.y - tmp2.y)**2 + (tmp1.z - tmp2.z)**2) < epsilon):
+                    same_obj_found = True
 
-        print("I got the following marker id from PrepareGrasp: ")
-        print(userdata.check_grasp_in.id)
-        print("The id_found is: ")
-        print(id_found)
+        print("I got the following marker obj_id from PrepareGrasp: ")
+        print(userdata.check_grasp_in.obj_id)
+        print("The same_obj_found is: ")
+        print(same_obj_found)
 
 
         # The userdata given by PrepareGrasp used to check grasp success
-        if self.last_marker_msg is None:
+        if self.last_object_msg is None:
             rospy.loginfo("In CheckGrasp I found no objects in scene. Supposing grasp to be successful!")
             return 'go_to_place'
-        elif not id_found:
+        elif not same_obj_found:
             rospy.loginfo("In CheckGrasp I did not find the same object in scene. Supposing grasp to be successful!")
             return 'go_to_place'
         else:
@@ -336,10 +334,10 @@ class CheckGrasp(smach.State):
             return 'try_regrasp'
 
     def obj_callback(self, data):
-        self.last_marker_msg = data
+        self.last_object_msg = data
 
-    def obj_callback_aruco(self, data):
-        self.last_aruco_markers_msg = data
+    def callback_clusters(self, data):
+        self.last_all_clusters_msg = data
 
 
 # State PlaceService
