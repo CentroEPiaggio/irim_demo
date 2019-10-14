@@ -45,11 +45,11 @@ struct Color {
     int id;
 };
 
-Color red("red", 255, 0, 0, 1);            // obj_id = 1
+Color red("red", 130, 40, 40, 1);            // obj_id = 1
 Color green("green", 0, 255, 0, 2);        // obj_id = 2
 Color blue("blue", 0, 0, 255, 3);          // obj_id = 3
 Color black("black", 0, 0, 0, 4);          // obj_id = 4
-Color white("red", 255, 255, 255, 5);      // obj_id = 5
+Color white("white", 97, 105, 110, 5);      // obj_id = 5
 
 
 // Class definition

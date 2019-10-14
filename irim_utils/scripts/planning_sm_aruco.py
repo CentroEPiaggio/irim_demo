@@ -68,13 +68,13 @@ franka_states_topic = rob_ns + "/franka_state_controller/franka_states/current_e
 
 # A dictionary associating ids with object names
 obj_dict = {
-    1: 'object1',
-    2: 'object2',
-    3: 'object3',
-    4: 'object4',
-    5: 'object5',
-    6: 'object6'
+    1: 'red',
+    2: 'green',
+    3: 'blue',
+    4: 'black',
+    5: 'white',
 }
+
 
 
 # TODO: pass userdata through states in order to check if object removed (timestamps) if so act accordingly

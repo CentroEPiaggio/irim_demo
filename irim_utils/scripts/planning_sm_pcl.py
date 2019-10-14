@@ -77,12 +77,11 @@ franka_states_topic = rob_ns + "/franka_state_controller/franka_states/current_e
 
 # A dictionary associating ids with object names
 obj_dict = {
-    1: 'object1',
-    2: 'object2',
-    3: 'object3',
-    4: 'object4',
-    5: 'object5',
-    6: 'object6'
+    1: 'red',
+    2: 'green',
+    3: 'blue',
+    4: 'black',
+    5: 'white',
 }
 
 
@@ -103,7 +102,7 @@ class Wait(smach.State):
         if VERBOSE:
             rospy.loginfo("Executing state Wait")
 
-        rospy.sleep(0.5) # Sleeps for 2 sec
+        rospy.sleep(0.5) # Sleeps for half a sec
 
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: if it's empty don't do anything
@@ -136,6 +135,8 @@ class PrepareGrasp(smach.State):
         if VERBOSE:
             rospy.loginfo("I'm preparing the grasp now.")
 
+        rospy.sleep(0.5) # Sleeps for half a sec for not getting the placing hand cluster
+
         # If no objects in scene return to wait
         if self.last_object_msg is None:
             rospy.loginfo("In PrepareGraps no objects in the scene. Going back to wait")
@@ -149,7 +150,7 @@ class PrepareGrasp(smach.State):
             set_obj_req.object_name = obj_dict.get(self.last_object_msg.obj_id)
         else:
             rospy.logerr("The obj_id of the object is not in the objects dictionary. Assigning the default...")
-            set_obj_req.object_name = obj_dict.get(0)
+            set_obj_req.object_name = obj_dict.get(1)
         
         # Calling the service
         set_obj_res = self.set_obj_client(set_obj_req)
