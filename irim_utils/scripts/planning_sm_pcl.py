@@ -277,7 +277,8 @@ class GraspService(smach.State):
 class CheckGrasp(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['go_to_place', 'try_regrasp', 'go_to_home'],
-                             input_keys=['check_grasp_in'])
+                             input_keys=['check_grasp_in'],
+                             output_keys=['check_grasp_out'])
 
         # Subscriber to object pose and the saved message
         self.obj_sub = rospy.Subscriber(object_topic, IdentifiedCluster, self.obj_callback, queue_size=1)
@@ -310,6 +311,8 @@ class CheckGrasp(smach.State):
         print("The same_obj_found is: ")
         print(same_obj_found)
 
+        # The userdata passed to Place
+        userdata.check_grasp_out = userdata.check_grasp_in
 
         # The userdata given by PrepareGrasp used to check grasp success
         if self.last_object_msg is None:
@@ -354,14 +357,32 @@ class CheckGrasp(smach.State):
 # State PlaceService
 class PlaceService(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go_to_home', 'error_place'])
+        smach.State.__init__(self, outcomes=['go_to_home', 'error_place'],
+                             input_keys=['place_in'])
 
         # Service Proxy to place service
         self.place_client = rospy.ServiceProxy(place_service_name, SetBool)
 
+         # Service Proxy to set place service
+        self.set_place_client = rospy.ServiceProxy(set_place_service_name, set_object)
+
     def execute(self, userdata):
         if VERBOSE:
             rospy.loginfo("I will perform placing now.")
+
+        # Call set object according to obj_id
+        set_obj_req = set_objectRequest()
+
+        # Setting the placing object and  Calling the service
+        set_obj_req.object_name = obj_dict.get(userdata.place_in.obj_id)
+        try:
+            set_obj_res = self.set_place_client(set_obj_req)
+        except rospy.ServiceException, e:
+            print "In PlaceService, Set Service call failed: %s"%e
+
+        if not set_obj_res.success:
+            rospy.loginfo("In PlaceService, errors in set place: going to error recovery!")
+            return 'error_place'
 
         # Creating a service request and sending
         set_bool_req = SetBoolRequest(True)
@@ -421,6 +442,7 @@ def main():
     # Waiting for the necessary services
     rospy.loginfo("Before starting the state machine, waiting for the services!")
     rospy.wait_for_service(set_obj_service_name)
+    rospy.wait_for_service(set_place_service_name)
     rospy.wait_for_service(grasp_service_name)
     rospy.wait_for_service(place_service_name)
     rospy.wait_for_service(home_service_name)
@@ -438,6 +460,7 @@ def main():
         # Create the sub state machine which does all the planning
         sm_sub = smach.StateMachine(outcomes=['exit_pick_and_place', 'exit_all'])
         sm_sub.userdata.passed_marker_msg = None
+        sm_sub.userdata.passed_check_msg = None
 
         # Open the sub container
         with sm_sub:
@@ -464,12 +487,14 @@ def main():
                                    transitions={'go_to_place': 'PLACE_SERVICE',
                                                 'try_regrasp': 'GRASP_SERVICE',
                                                 'go_to_home' : 'HOME_SERVICE'},
-                                    remapping={'check_grasp_in':'passed_marker_msg'})
+                                    remapping={'check_grasp_in':'passed_marker_msg',
+                                                'check_grasp_out':'passed_check_msg'})
 
             # The state for placing the grasped object
             smach.StateMachine.add('PLACE_SERVICE', PlaceService(),
                                    transitions={'go_to_home': 'HOME_SERVICE',
-                                                'error_place': 'ERROR_SERVICE'})
+                                                'error_place': 'ERROR_SERVICE'},
+                                    remapping={'place_in':'passed_check_msg'})
 
             # The state for going to home
             smach.StateMachine.add('HOME_SERVICE', HomeService(),

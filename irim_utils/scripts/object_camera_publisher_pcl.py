@@ -181,7 +181,7 @@ class ObjectPoseRemapper:
         lowest_ind = max_id
         lowest_dist = 10        # never gonna be higher than 10m
 
-        if True:
+        if DEBUG:
             print("The length of the ident_cluster is " + str(len(data.ident_clusters)))
         
         for ind in range(len(data.ident_clusters)):
