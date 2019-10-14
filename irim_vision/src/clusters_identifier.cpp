@@ -96,7 +96,7 @@ class ClustersIdentifier {
 
     // RECTAGLE OF WORKSPACE (only clusters inside this rectangle are considered)
     // TODO: Parse these values
-    const double x_lo = 0.20; const double x_up = 0.70;
+    const double x_lo = 0.20; const double x_up = 0.75;
     const double y_l = 0.10; const double y_r = -0.40;
 
     // Basic orientation
