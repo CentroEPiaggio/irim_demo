@@ -107,9 +107,10 @@ class Wait(smach.State):
 
         # According to the presence or absence of objects, change state
         # The callback simply saves the message: if it's empty don't do anything
-        if self.last_object_msg is None:
+        if self.last_object_msg is None or self.last_object_msg.obj_id == max_id + 1:
             return 'no_obj_in_view'
         else:
+            self.last_object_msg = None         # Clearing the memory of wait
             return 'obj_in_view'
 
     def obj_callback(self, data):
@@ -157,11 +158,13 @@ class PrepareGrasp(smach.State):
         userdata.prepare_grasp_out = self.last_object_msg
 
         # Change state according to result
-        if set_obj_res.result and self.last_object_msg is not None:
+        if set_obj_res.result and self.last_object_msg is not None and self.last_object_msg.obj_id != max_id + 1:
             rospy.loginfo("In PrepareGrasp, no problems: going to grasp!")
+            self.last_object_msg = None         # Clearing the memory of prepare grasp
             return 'go_to_grasp'
         else:
             rospy.loginfo("In PrepareGrasp, errors: going to wait!")
+            self.last_object_msg = None         # Clearing the memory of prepare grasp
             return 'go_to_wait'
 
     def obj_callback(self, data):
@@ -255,9 +258,11 @@ class GraspService(smach.State):
         # Changing states according to res
         if complex_grasp_res.success:
             rospy.loginfo("In GraspService, no problems: going to check!")
+            self.last_object_msg = None         # Clearing the memory of grasp
             return 'go_to_check'
         else:
             rospy.loginfo("In GraspService, errors: going to error state!")
+            self.last_object_msg = None         # Clearing the memory of grasp
             return 'error_grasp'
 
     def obj_callback(self, data):
@@ -308,9 +313,11 @@ class CheckGrasp(smach.State):
         # The userdata given by PrepareGrasp used to check grasp success
         if self.last_object_msg is None:
             rospy.loginfo("In CheckGrasp I found no objects in scene. Supposing grasp to be successful!")
+            self.last_object_msg = None         # Clearing the memory of checkgrasp
             return 'go_to_place'
         elif not same_obj_found:
             rospy.loginfo("In CheckGrasp I did not find the same object in scene. Supposing grasp to be successful!")
+            self.last_object_msg = None         # Clearing the memory of checkgrasp
             return 'go_to_place'
         else:
             rospy.loginfo("In CheckGrasp I found the same object in scene. Grasp unsuccessful! Opening hand and retying...")
@@ -321,6 +328,7 @@ class CheckGrasp(smach.State):
 
             if not hand_plan_res.answer:
                 rospy.logerr("In CheckGrasp I could not plan the reopening of hand for regrasing! Going to home...")
+                self.last_object_msg = None         # Clearing the memory of checkgrasp
                 return 'go_to_home'
 
             hand_control_req = hand_controlRequest()
@@ -329,8 +337,10 @@ class CheckGrasp(smach.State):
 
             if not hand_control_res:
                 rospy.logerr("In CheckGrasp I could not reopen the hand for regrasing! Going to home...")
+                self.last_object_msg = None         # Clearing the memory of checkgrasp
                 return 'go_to_home'
 
+            self.last_object_msg = None         # Clearing the memory of checkgrasp
             return 'try_regrasp'
 
     def obj_callback(self, data):

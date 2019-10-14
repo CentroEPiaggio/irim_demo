@@ -54,9 +54,9 @@ camera_frame_name = "camera_link"
 input_topic = "aruco_marker_publisher/markers"
 input_topic_pcl = "irim_vision/identified_clusters"
 output_ns = "irim_demo/"
-output_pose_topic = output_ns + "chosen_object"             # This will be used by task_sequencer
+output_pose_topic = output_ns + "chosen_object"                 # This will be used by task_sequencer if simple grasp
 output_cluster_topic = output_ns + "cluster_chosen_object"      # This will be used by state machine
-world_to_cam_topic = output_ns + "camera_pose"              # This will be used by state machine
+world_to_cam_topic = output_ns + "camera_pose"                  # This will be used by state machine
 
 
 class ObjectPoseRemapper:
@@ -127,8 +127,14 @@ class ObjectPoseRemapper:
         if len(data.ident_clusters) > 0:
             self.choose_object(data)
             self.broadcast_tf(self.obj_frame_w, object_frame_name, world_frame_name)
+        else:
+            # When no object is in scene publishing max id + 1 is required unless we
+            # find a method for find callbacks not being called
+            self.chosen_obj_cluster = IdentifiedCluster()
+            self.chosen_obj_cluster.obj_id = max_id + 1
 
-        # Publishing the object Identified Cluster message to the output_cluster_topic
+        # Publishing the object Identified Cluster message to the output_cluster_topic 
+        # This publishing is important for wait in the state machine
         if self.chosen_obj_cluster is not None:            
             # Now publish
             self.cluster_pub.publish(self.chosen_obj_cluster)
@@ -174,11 +180,17 @@ class ObjectPoseRemapper:
         nearest_object = None
         lowest_ind = max_id
         lowest_dist = 10        # never gonna be higher than 10m
+
+        if True:
+            print("The length of the ident_cluster is " + str(len(data.ident_clusters)))
+        
         for ind in range(len(data.ident_clusters)):
             if data.ident_clusters[ind].pose.position.x < lowest_dist:
                 lowest_dist = data.ident_clusters[ind].pose.position.x
                 lowest_ind = ind
-        nearest_object = data.ident_clusters[lowest_ind]
+
+        if lowest_ind != max_id:
+            nearest_object = data.ident_clusters[lowest_ind]
 
         if DEBUG:
             print("The chosen objects id is " + str(lowest_ind))
@@ -190,6 +202,7 @@ class ObjectPoseRemapper:
 
         # Correct the cluster msg to be in world frame
         self.chosen_obj_cluster = nearest_object
+        
 
     def broadcast_tf(self, frame, name, ref):
         # Simple function which broadcasts a tf from a PyKDL frame expressed wrt a ref frame (string)

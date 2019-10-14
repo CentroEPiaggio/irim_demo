@@ -135,7 +135,7 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
     this->saved_msg = *seg_clusters_msg;
     std_msgs::Header tmp_header;
     irim_vision::IdentifiedCluster tmp_ident_cluster;
-    irim_vision::IdentifiedClustersArray ouput_msg;
+    irim_vision::IdentifiedClustersArray output_msg;
 
     // Processing single clusters and saving if inside square
     for (int i = 0; i < this->saved_msg.clusters.size(); i++) {
@@ -159,12 +159,12 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
         tmp_ident_cluster.header = tmp_header;
         
         // Pushing back
-        ouput_msg.ident_clusters.push_back(tmp_ident_cluster);
+        output_msg.ident_clusters.push_back(tmp_ident_cluster);
 
     }
 
-    // Publishing the identified clusters array
-    this->i_pub.publish(ouput_msg);
+    // Publishing the identified clusters always (because needed for checking grasp success)
+    this->i_pub.publish(output_msg);
 
 }
 
