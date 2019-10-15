@@ -1,0 +1,12 @@
+<launch>
+
+    <!-- cloud transformer-->
+    <node name="cloud_transformer" pkg="irim_vision" type="irim_vision_cloud_transformer" respawn="false" output="screen" />    
+
+    <!-- segmentation -->
+    <node name= "segmentation" pkg= "irim_vision" type= "irim_vision_segmentation" respawn= "false" output="screen" />
+
+    <!-- clusters_identifier -->
+    <node name= "clusters_identifier" pkg= "irim_vision" type= "irim_vision_clusters_identifier" respawn= "false" output="screen" />
+
+</launch>

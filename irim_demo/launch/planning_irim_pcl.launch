@@ -1,0 +1,11 @@
+<launch>
+
+    <!-- Planning State Machine PCL-->
+    <node pkg="irim_utils" name="planning_sm_pcl_node" type="planning_sm_pcl.py" output="screen">
+    </node>  
+
+    <!-- segmentation -->
+    <node pkg="smach_viewer" name="smach_viewer_node" type="smach_viewer.py" output="screen">
+    </node>
+
+</launch>
