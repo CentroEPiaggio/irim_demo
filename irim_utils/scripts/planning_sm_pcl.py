@@ -228,11 +228,17 @@ class GraspService(smach.State):
 
         # Check if the passed userdata obj_id from PrepareGrasp is in the clusters array
         cluster_found = None
+        same_obj_found = False
         for ind in range(len(self.last_all_clusters_msg.ident_clusters)):
             if self.last_all_clusters_msg.ident_clusters[ind].obj_id == userdata.grasp_in.obj_id:
-                cluster_found = self.last_all_clusters_msg.ident_clusters[ind]
+                tmp1 = self.last_all_clusters_msg.ident_clusters[ind].pose.position
+                tmp2 = userdata.grasp_in.pose.position
+                dist_curr = math.sqrt((tmp1.x - tmp2.x)**2 + (tmp1.y - tmp2.y)**2 + (tmp1.z - tmp2.z)**2)
+                if (dist_curr < epsilon):
+                    same_obj_found = True
+                    cluster_found = self.last_all_clusters_msg.ident_clusters[ind]
 
-        if cluster_found is None:
+        if same_obj_found is False:
             rospy.loginfo("In GraspService, the object with obj_id given by PrepareGrasp was not found!")
             return 'go_to_prepare'
 
