@@ -299,18 +299,26 @@ class CheckGrasp(smach.State):
 
         # Check if the passed userdata obj_id and rough position from PrepareGrasp is in the clusters array
         same_obj_found = False
+        same_color = False
+        dist_curr = 0.0
         for ind in range(len(self.last_all_clusters_msg.ident_clusters)):
             if self.last_all_clusters_msg.ident_clusters[ind].obj_id == userdata.check_grasp_in.obj_id:
                 # Check for position with a tolerance
+                same_color = True
                 tmp1 = self.last_all_clusters_msg.ident_clusters[ind].pose.position
                 tmp2 = userdata.check_grasp_in.pose.position
-                if (math.sqrt((tmp1.x - tmp2.x)**2 + (tmp1.y - tmp2.y)**2 + (tmp1.z - tmp2.z)**2) < epsilon):
+                dist_curr = math.sqrt((tmp1.x - tmp2.x)**2 + (tmp1.y - tmp2.y)**2 + (tmp1.z - tmp2.z)**2)
+                if (dist_curr < epsilon):
                     same_obj_found = True
 
         print("I got the following marker obj_id from PrepareGrasp: ")
         print(userdata.check_grasp_in.obj_id)
         print("The same_obj_found is: ")
         print(same_obj_found)
+        if same_color:
+            print("The same colored object is distant " + str(dist_curr))
+        else:
+            print("NO same colored object found ")
 
         # The userdata passed to Place
         userdata.check_grasp_out = userdata.check_grasp_in
