@@ -82,6 +82,7 @@ obj_dict = {
     3: 'blue',
     4: 'black',
     5: 'white',
+    6: 'other'
 }
 
 

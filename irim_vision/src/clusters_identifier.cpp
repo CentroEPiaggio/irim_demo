@@ -11,6 +11,7 @@ Email: gpollayil@gmail.com, mathewjosepollayil@gmail.com  */
 #include <pcl/point_types.h>
 #include <pcl/common/centroid.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_types_conversion.h>
 
 // Custom Includes
 #include <irim_vision/SegmentedClustersArray.h>
@@ -28,28 +29,36 @@ Email: gpollayil@gmail.com, mathewjosepollayil@gmail.com  */
 // Defining colors struct and some basic colors
 struct Color {
 
-    // Constructora
+    // Constructor
     Color() {
-        this->name = "red";
-        this->r = 255; this->g = 0; this->b = 0; this->id = 1;
+        this->name = "red"; this->id = 1;
+        this->h_low = 0; this->h_high = 60;
+        this->s_low = 0.25; this->s_high = 1.00;
+        this->v_low = 0.25; this->v_high = 1.00;
     }
 
-    Color(std::string name_, int r_, int g_, int b_, int id_) {
-        this->name = name_;
-        this->r = r_; this->g = g_; this->b = b_; this->id = id_;
+    Color(std::string name_, int id_, int h_low_, int h_high_, float s_low_, float s_high_, float v_low_, float v_high_) {
+        this->name = name_; this->id = id_;
+        this->h_low = h_low_; this->h_high = h_high_;
+        this->s_low = s_low_; this->s_high = s_high_;
+        this->v_low = v_low_; this->v_high = v_high_;
     }
 
     // Variables
     std::string name;
-    int r, g, b;
+    int h_low, h_high;
+    float s_low, s_high;
+    float v_low, v_high;
     int id;
 };
 
-Color red("red", 130, 40, 40, 1);            // obj_id = 1
-Color green("green", 0, 255, 0, 2);        // obj_id = 2
-Color blue("blue", 0, 0, 255, 3);          // obj_id = 3
-Color black("black", 0, 0, 0, 4);          // obj_id = 4
-Color white("white", 97, 105, 110, 5);      // obj_id = 5
+Color red("red", 1, 0, 60, 0.25, 1.00, 0.25, 1.00);                   // obj_id = 1
+Color green("green", 2, 121, 180, 0.25, 1.00, 0.25, 1.00);            // obj_id = 2
+Color blue("blue", 3, 241, 300, 0.25, 1.00, 0.25, 1.00);              // obj_id = 3
+Color black("black", 4, 0, 360, 0.0, 0.45, 0.0, 0.55);                  // obj_id = 4
+Color white("white", 5, 0, 360, 0.0, 0.25, 0.75, 1.00);                // obj_id = 5
+
+Color other("other", 6, 0, 0, 0, 0, 0, 0);                      // obj_id = 6 (NOT IN VECTOR known_colors)
 
 
 // Class definition
@@ -127,6 +136,18 @@ class ClustersIdentifier {
         return false;
     }
 
+    // Aux function to find if hsv point in color range
+    inline bool is_color(Color color, pcl::PointXYZHSV point) {
+        if (point.h <= color.h_high && point.h >= color.h_low) {
+            if (point.s <= color.s_high && point.s >= color.s_low) {
+                if (point.v <= color.v_high && point.v >= color.v_low) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
 }; // End class definition
 
 void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayConstPtr& seg_clusters_msg) {
@@ -197,17 +218,27 @@ bool ClustersIdentifier::assign_pose_id(sensor_msgs::PointCloud2 cluster_in, geo
             curr_centroid.z << ") / col: (" << r << ", " << g << ", " << b << ")");
     }
 
+    // Converting to HSV
+    pcl::PointXYZHSV hsv_point;
+    pcl::PointXYZRGBtoXYZHSV(curr_centroid, hsv_point);
+
+    if (DEBUG) {
+        ROS_INFO_STREAM("The HSV of the cluster is hsv: (" << hsv_point.h << ", " << hsv_point.s << ", " << hsv_point.v << ")");
+    }
+
     // Iterating the colors and checking the nearest and choosing id accordingly
-    int min_dist = 3 * std::pow(255, 2);
     int chosen_id = 0;
+    bool found_color = false;
     for (auto it : this->known_colors) {
-
-        int this_distance = std::pow(it.r-r,2) + std::pow(it.g-g,2) + std::pow(it.b-b,2);
-        if (this_distance < min_dist) {
-            min_dist = this_distance;
+        if (this->is_color(it, hsv_point)) {
+            found_color = true;
             chosen_id = it.id;
+            break;
         }
+    }
 
+    if (!found_color) {
+        chosen_id = other.id;
     }
 
     if (DEBUG) {

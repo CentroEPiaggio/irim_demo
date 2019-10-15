@@ -136,7 +136,7 @@ void segmentation::cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg){
   // specify euclidean cluster parameters
   ec.setClusterTolerance (0.02); // 2cm
   ec.setMinClusterSize (40);
-  ec.setMaxClusterSize (500);
+  ec.setMaxClusterSize (300);
   ec.setSearchMethod (tree);
   ec.setInputCloud (xyzCloudPtrRansacFiltered);
   // exctract the indices pertaining to each cluster and store in a vector of pcl::PointIndices
