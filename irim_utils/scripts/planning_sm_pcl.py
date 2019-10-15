@@ -58,7 +58,7 @@ DEBUG = False
 VERBOSE = True
 
 max_id = 999            # If you change this, change it also in object camera publisher
-epsilon = 0.04          # The distance in cm for checking if the object has been grasped
+epsilon = 0.03          # The distance in cm for checking if the object has been grasped
 
 # Topic and service names
 object_topic = "irim_demo/cluster_chosen_object"
