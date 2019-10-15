@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<!-- THIS FILE LAUNCHES ONLY RVIZ FOR THE FRANKA EMIKA PANDA + SOFTHAND -->
+<launch>
+
+    <!-- RViz for visualization -->
+    <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find irim_demo)/config/panda_irim.rviz"/>
+
+</launch>
