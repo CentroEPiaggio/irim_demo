@@ -56,7 +56,8 @@ Color red("red", 1, 0, 60, 0.25, 1.00, 0.25, 1.00);                     // obj_i
 Color green("green", 2, 121, 180, 0.25, 1.00, 0.25, 1.00);              // obj_id = 2
 Color blue("blue", 3, 241, 300, 0.25, 1.00, 0.25, 1.00);                // obj_id = 3
 Color black("black", 4, 0, 360, 0.0, 0.45, 0.0, 0.55);                  // obj_id = 4
-Color white("white", 5, 0, 360, 0.0, 0.25, 0.65, 1.00);                 // obj_id = 5
+Color white("white", 5, 0, 360, 0.0, 0.35, 0.65, 1.00);                 // obj_id = 5
+Color red2("red2", 1, 330, 360, 0.25, 1.00, 0.25, 1.00);                   // obj_id = 1
 
 Color other("other", 6, 0, 0, 0, 0, 0, 0);                              // obj_id = 6 (NOT IN VECTOR known_colors)
 
@@ -74,7 +75,7 @@ class ClustersIdentifier {
         this->i_pub = i_nh.advertise<irim_vision::IdentifiedClustersArray> ("irim_vision/identified_clusters", 1);
 
         // Build the colors and pushback
-        this->known_colors = {red, green, blue, black, white};
+        this->known_colors = {red, green, blue, black, white, red2};
 
         // Assign the basic orientation
         this->basic_quat.x = 0.0; this->basic_quat.y = 0.0;
