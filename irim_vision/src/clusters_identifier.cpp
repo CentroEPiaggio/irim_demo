@@ -81,6 +81,10 @@ class ClustersIdentifier {
         this->basic_quat.x = 0.0; this->basic_quat.y = 0.0;
         this->basic_quat.z = 0.0; this->basic_quat.w = 1.0;
 
+        // Initialize the variables of memory
+        this->clust_dur = ros::Duration(3.0);
+        this->last_ros_time = ros::Time::now();
+
     }
 
     // Class destructor
@@ -111,6 +115,12 @@ class ClustersIdentifier {
 
     // Basic orientation
     geometry_msgs::Quaternion basic_quat;
+
+    // A vector of pairs with the duration of the different clusters
+    std::vector<std::pair<irim_vision::IdentifiedCluster, ros::Duration>> clusters_memory;
+    const double mem_tol = 0.02;            // Tolerance inside which the cluster should stay for some time
+    ros::Duration clust_dur;               // Time after which a cluster is considered as still object
+    ros::Time last_ros_time;
 
     // Callback for the segmented clusters array
     void cluster_cb(const irim_vision::SegmentedClustersArrayConstPtr& cloud_msg);
@@ -146,6 +156,14 @@ class ClustersIdentifier {
                 }
             }
         }
+        return false;
+    }
+
+    // Aux function for looking if a pose is near another pose within a tolerance
+    inline bool is_near(geometry_msgs::Pose pose1, geometry_msgs::Pose pose2, double tol) {
+        geometry_msgs::Point p1 = pose1.position; geometry_msgs::Point p2 = pose2.position;
+        double dist = std::sqrt(std::pow(p1.x - p2.x, 2) + std::pow(p1.y - p2.y, 2) + std::pow(p1.z - p2.z, 2));
+        if (dist < tol) return true;
         return false;
     }
 
@@ -185,8 +203,52 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
 
     }
 
+    // Looking if the found array has corresponding clusters in memory (if yes update time, else new entry)
+    for (int i = 0; i < output_msg.ident_clusters.size(); i++) {
+        // Checking in the memory
+        for (int j = 0; j < this->clusters_memory.size(); j++) {
+            // Checking if near
+            if (this->is_near(this->clusters_memory.at(j).first.pose, output_msg.ident_clusters.at(i).pose, this->mem_tol)) {
+                // Update the duration
+                this->clusters_memory.at(j).second += (ros::Time::now() - this->last_ros_time);
+            } else {
+                // New entry in memory
+                std::pair<irim_vision::IdentifiedCluster, ros::Duration> tmp_pair;
+                tmp_pair.first = output_msg.ident_clusters.at(i);
+                tmp_pair.second = ros::Duration(0.0);
+                this->clusters_memory.push_back(tmp_pair);
+            }
+        }
+    }
+
+    // Cleaning memory of non existing clusters
+    for (int j = 0; j < this->clusters_memory.size(); j++) {
+        bool found_clus = false;
+        for (int i = 0; i < output_msg.ident_clusters.size(); i++) {
+            if (this->is_near(this->clusters_memory.at(j).first.pose, output_msg.ident_clusters.at(i).pose, this->mem_tol)) {
+                found_clus = true;
+            }
+        }
+
+        // If not found erase from memory
+        if (!found_clus) {
+            this->clusters_memory.erase(this->clusters_memory.begin() + j);
+        }
+    }
+
+    // Filling up a new clusters array with long remaining clusters
+    irim_vision::IdentifiedClustersArray final_output_msg;
+    for (int j = 0; j < this->clusters_memory.size(); j++) {
+        if (this->clusters_memory.at(j).second > this->clust_dur) {
+            final_output_msg.ident_clusters.push_back(this->clusters_memory.at(j).first);
+        }
+    }
+
     // Publishing the identified clusters always (because needed for checking grasp success)
-    this->i_pub.publish(output_msg);
+    this->i_pub.publish(final_output_msg);
+
+    // Updating last ros time
+    this->last_ros_time = ros::Time::now();
 
 }
 
