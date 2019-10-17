@@ -101,7 +101,7 @@ class Wait(smach.State):
 
     def execute(self, userdata):
         if VERBOSE:
-            rospy.loginfo("Executing state Wait")
+            #rospy.loginfo("Executing state Wait")
 
         rospy.sleep(0.5) # Sleeps for half a sec
 
@@ -150,7 +150,7 @@ class PrepareGrasp(smach.State):
         if self.last_object_msg.obj_id <= len(obj_dict):
             set_obj_req.object_name = obj_dict.get(self.last_object_msg.obj_id)
         else:
-            rospy.logerr("The obj_id of the object is not in the objects dictionary. Assigning the default...")
+            rospy.logerr("The obj_id of the object is " + str(self.last_object_msg.obj_id) + " not in the objects dictionary. Assigning the default...")
             set_obj_req.object_name = obj_dict.get(1)
         
         # Calling the service
