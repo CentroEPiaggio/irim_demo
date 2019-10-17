@@ -83,6 +83,7 @@ class ClustersIdentifier {
 
         // Initialize the variables of memory
         this->clust_dur = ros::Duration(2.0);
+        this->clust_max_dur = ros::Duration(3.0);
         this->last_ros_time = ros::Time::now();
 
     }
@@ -119,7 +120,8 @@ class ClustersIdentifier {
     // A vector of pairs with the duration of the different clusters
     std::vector<std::pair<irim_vision::IdentifiedCluster, ros::Duration>> clusters_memory;
     const double mem_tol = 0.02;            // Tolerance inside which the cluster should stay for some time
-    ros::Duration clust_dur;               // Time after which a cluster is considered as still object
+    ros::Duration clust_dur;                // Time after which a cluster is considered as still object
+    ros::Duration clust_max_dur;            // Time of max clust_dur
     ros::Time last_ros_time;
 
     // Callback for the segmented clusters array
@@ -210,8 +212,10 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
         for (int j = 0; j < this->clusters_memory.size(); j++) {
             // Checking if near
             if (this->is_near(this->clusters_memory.at(j).first.pose, output_msg.ident_clusters.at(i).pose, this->mem_tol)) {
-                // Update the duration
-                this->clusters_memory.at(j).second += (ros::Time::now() - this->last_ros_time);
+                // Update the duration if duration not greater than limit
+                if (this->clusters_memory.at(j).second <= this->clust_max_dur) {
+                    this->clusters_memory.at(j).second += (ros::Time::now() - this->last_ros_time);
+                }
                 new_clus = false;
             }
         }
@@ -238,21 +242,28 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
         // If not found reduce duration of pair
         if (!found_clus) {
             this->clusters_memory.at(j).second -= (ros::Time::now() - this->last_ros_time);
+            std::cout << " The reduced duration is " << this->clusters_memory.at(j).second.toSec() << std::endl;
         }
     }
 
-    // Deleting old clusters and filling up a new clusters array with long remaining clusters
+    // Indeces for deleting old clusters and filling up a new clusters array with long remaining clusters
     irim_vision::IdentifiedClustersArray final_output_msg;
+    std::vector<int> indeces_del;
     for (int j = 0; j < this->clusters_memory.size(); j++) {
         // If duration of cluster is zero or less erase
-        if (this->clusters_memory.at(j).second <= ros::Duration(0.0)) {
-            this->clusters_memory.erase(this->clusters_memory.begin() + j);
+        if (this->clusters_memory.at(j).second < ros::Duration(0.0)) {
+            indeces_del.push_back(j);
         }
 
         // Then fill up the final message
         if (this->clusters_memory.at(j).second > this->clust_dur) {
             final_output_msg.ident_clusters.push_back(this->clusters_memory.at(j).first);
         }
+    }
+
+    // Deleting really
+    for (int i = 0; i < indeces_del.size(); i++) {
+        this->clusters_memory.erase(this->clusters_memory.begin() + indeces_del.at(i));
     }
 
     // Publishing the identified clusters always (because needed for checking grasp success)
