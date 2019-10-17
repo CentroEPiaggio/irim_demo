@@ -206,18 +206,23 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
     // Looking if the found array has corresponding clusters in memory (if yes update time, else new entry)
     for (int i = 0; i < output_msg.ident_clusters.size(); i++) {
         // Checking in the memory
+        bool new_clus = true;
         for (int j = 0; j < this->clusters_memory.size(); j++) {
             // Checking if near
             if (this->is_near(this->clusters_memory.at(j).first.pose, output_msg.ident_clusters.at(i).pose, this->mem_tol)) {
                 // Update the duration
                 this->clusters_memory.at(j).second += (ros::Time::now() - this->last_ros_time);
-            } else {
-                // New entry in memory
-                std::pair<irim_vision::IdentifiedCluster, ros::Duration> tmp_pair;
-                tmp_pair.first = output_msg.ident_clusters.at(i);
-                tmp_pair.second = ros::Duration(0.0);
-                this->clusters_memory.push_back(tmp_pair);
+                new_clus = false;
             }
+        }
+        
+        // If new cluster insert it
+        if (new_clus) {
+            // New entry in memory
+            std::pair<irim_vision::IdentifiedCluster, ros::Duration> tmp_pair;
+            tmp_pair.first = output_msg.ident_clusters.at(i);
+            tmp_pair.second = ros::Duration(0.0);
+            this->clusters_memory.push_back(tmp_pair);
         }
     }
 
