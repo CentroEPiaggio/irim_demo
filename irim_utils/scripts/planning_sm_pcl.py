@@ -100,8 +100,8 @@ class Wait(smach.State):
         self.last_object_msg = None
 
     def execute(self, userdata):
-        if VERBOSE:
-            #rospy.loginfo("Executing state Wait")
+        if False:
+            rospy.loginfo("Executing state Wait")
 
         rospy.sleep(0.5) # Sleeps for half a sec
 
