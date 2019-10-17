@@ -82,7 +82,7 @@ class ClustersIdentifier {
         this->basic_quat.z = 0.0; this->basic_quat.w = 1.0;
 
         // Initialize the variables of memory
-        this->clust_dur = ros::Duration(3.0);
+        this->clust_dur = ros::Duration(2.0);
         this->last_ros_time = ros::Time::now();
 
     }
@@ -235,15 +235,21 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
             }
         }
 
-        // If not found erase from memory
+        // If not found reduce duration of pair
         if (!found_clus) {
-            this->clusters_memory.erase(this->clusters_memory.begin() + j);
+            this->clusters_memory.at(j).second -= (ros::Time::now() - this->last_ros_time);
         }
     }
 
-    // Filling up a new clusters array with long remaining clusters
+    // Deleting old clusters and filling up a new clusters array with long remaining clusters
     irim_vision::IdentifiedClustersArray final_output_msg;
     for (int j = 0; j < this->clusters_memory.size(); j++) {
+        // If duration of cluster is zero or less erase
+        if (this->clusters_memory.at(j).second <= ros::Duration(0.0)) {
+            this->clusters_memory.erase(this->clusters_memory.begin() + j);
+        }
+
+        // Then fill up the final message
         if (this->clusters_memory.at(j).second > this->clust_dur) {
             final_output_msg.ident_clusters.push_back(this->clusters_memory.at(j).first);
         }
