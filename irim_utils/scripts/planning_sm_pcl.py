@@ -64,6 +64,7 @@ epsilon = 0.03          # The distance in cm for checking if the object has been
 object_topic = "irim_demo/cluster_chosen_object"
 cam_pose_topic = "irim_demo/camera_pose"
 identified_clusters_topic = "irim_vision/identified_clusters"
+identified_clusters2_topic = "irim_vision/identified_clusters2"
 set_obj_service_name = '/set_object_service'
 set_place_service_name = '/set_place_service'
 grasp_service_name = '/complex_grasp_task_service'
@@ -292,7 +293,7 @@ class CheckGrasp(smach.State):
         self.last_object_msg = None
 
         # Subscriber to aruco markers and the saved message
-        self.obj_sub = rospy.Subscriber(identified_clusters_topic, IdentifiedClustersArray, self.callback_clusters, queue_size=1)
+        self.obj_sub = rospy.Subscriber(identified_clusters2_topic, IdentifiedClustersArray, self.callback_clusters, queue_size=1)
         self.last_all_clusters_msg = None
 
         # Service Proxy to hand opening service

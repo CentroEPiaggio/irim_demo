@@ -73,6 +73,7 @@ class ClustersIdentifier {
         // Build the subscriber and publisher
         this->i_sub = i_nh.subscribe ("irim_vision/clusters", 10, &ClustersIdentifier::cluster_cb, this);
         this->i_pub = i_nh.advertise<irim_vision::IdentifiedClustersArray> ("irim_vision/identified_clusters", 1);
+        this->i2_pub = i_nh.advertise<irim_vision::IdentifiedClustersArray> ("irim_vision/identified_clusters2", 1);
 
         // Build the colors and pushback
         this->known_colors = {red, green, blue, black, white, red2};
@@ -98,6 +99,7 @@ class ClustersIdentifier {
     // ROS stuff
     ros::NodeHandle i_nh;
     ros::Publisher i_pub;
+    ros::Publisher i2_pub;
     ros::Subscriber i_sub;
 
     // Known colors vector
@@ -268,6 +270,7 @@ void ClustersIdentifier::cluster_cb(const irim_vision::SegmentedClustersArrayCon
 
     // Publishing the identified clusters always (because needed for checking grasp success)
     this->i_pub.publish(final_output_msg);
+    this->i2_pub.publish(output_msg);
 
     // Updating last ros time
     this->last_ros_time = ros::Time::now();
