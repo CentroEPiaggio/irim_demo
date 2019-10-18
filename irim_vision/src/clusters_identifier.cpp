@@ -52,12 +52,12 @@ struct Color {
     int id;
 };
 
-Color red("red", 1, 0, 60, 0.25, 1.00, 0.25, 1.00);                     // obj_id = 1
-Color green("green", 2, 121, 180, 0.25, 1.00, 0.25, 1.00);              // obj_id = 2
-Color blue("blue", 3, 200, 280, 0.00, 0.45, 0.45, 1.00);                // obj_id = 3
+Color red("red", 1, 0, 25, 0.10, 1.00, 0.10, 1.00);                     // obj_id = 1
+Color green("green", 2, 30, 150, 0.10, 1.00, 0.10, 1.00);              // obj_id = 2
+Color blue("blue", 3, 200, 290, 0.10, 1.00, 0.10, 1.00);                // obj_id = 3
 Color black("black", 4, 0, 360, 0.0, 0.45, 0.0, 0.55);                  // obj_id = 4
 Color white("white", 5, 0, 360, 0.0, 0.35, 0.55, 1.00);                 // obj_id = 5
-Color red2("red2", 1, 330, 360, 0.25, 1.00, 0.25, 1.00);                // obj_id = 1
+Color red2("red2", 1, 320, 360, 0.10, 1.00, 0.10, 1.00);                // obj_id = 1
 
 Color other("other", 6, 0, 0, 0, 0, 0, 0);                              // obj_id = 6 (NOT IN VECTOR known_colors)
 
@@ -76,7 +76,7 @@ class ClustersIdentifier {
         this->i2_pub = i_nh.advertise<irim_vision::IdentifiedClustersArray> ("irim_vision/identified_clusters2", 1);
 
         // Build the colors and pushback
-        this->known_colors = {red, green, blue, black, white, red2};
+        this->known_colors = {red, red2, green, blue, black, white};
 
         // Assign the basic orientation
         this->basic_quat.x = 0.0; this->basic_quat.y = 0.0;
