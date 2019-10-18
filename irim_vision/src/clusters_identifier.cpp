@@ -52,8 +52,8 @@ struct Color {
     int id;
 };
 
-Color red("red", 1, 0, 25, 0.00, 1.00, 0.00, 1.00);                     // obj_id = 1
-Color green("green", 2, 25, 170, 0.00, 1.00, 0.00, 1.00);               // obj_id = 2
+Color red("red", 1, 0, 20, 0.00, 1.00, 0.00, 1.00);                     // obj_id = 1
+Color green("green", 2, 20, 170, 0.00, 1.00, 0.00, 1.00);               // obj_id = 2
 Color blue("blue", 3, 170, 300, 0.00, 1.00, 0.00, 1.00);                // obj_id = 3
 // Color black("black", 4, 0, 360, 0.0, 0.45, 0.0, 0.55);               // obj_id = 4
 // Color white("white", 5, 0, 360, 0.0, 0.35, 0.55, 1.00);              // obj_id = 5
