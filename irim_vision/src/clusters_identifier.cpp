@@ -52,12 +52,12 @@ struct Color {
     int id;
 };
 
-Color red("red", 1, 0, 15, 0.00, 1.00, 0.00, 1.00);                     // obj_id = 1
-Color green("green", 2, 15, 170, 0.00, 1.00, 0.00, 1.00);               // obj_id = 2
-Color blue("blue", 3, 170, 300, 0.00, 1.00, 0.00, 1.00);                // obj_id = 3
+Color red("red", 1, 0, 7, 0.00, 1.00, 0.00, 1.00);                     // obj_id = 1
+Color green("green", 2, 7, 170, 0.00, 1.00, 0.00, 1.00);               // obj_id = 2
+Color blue("blue", 3, 170, 330, 0.00, 1.00, 0.00, 1.00);                // obj_id = 3
 // Color black("black", 4, 0, 360, 0.0, 0.45, 0.0, 0.55);               // obj_id = 4
 // Color white("white", 5, 0, 360, 0.0, 0.35, 0.55, 1.00);              // obj_id = 5
-Color red2("red2", 1, 300, 360, 0.00, 1.00, 0.00, 1.00);                // obj_id = 1
+Color red2("red2", 1, 330, 360, 0.00, 1.00, 0.00, 1.00);                // obj_id = 1
 
 Color other("other", 6, 0, 0, 0, 0, 0, 0);                              // obj_id = 6 (NOT IN VECTOR known_colors)
 
